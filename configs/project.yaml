@@ -1,0 +1,23 @@
+
+project_name: "song-of-the-week"
+user_agent: "song-of-the-week/1.0"
+
+# Logging info
+logging:
+  level: "INFO"
+  fmt: "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+  datefmt: "%Y-%m-%d %H:%M:%S"
+
+# Data layout
+paths:
+  extraction_curated: "extraction/data/curated"
+  extraction_raw: "extraction/data/raw"
+  core_processed: "core/data/processed"
+  core_features: "core/data/features"
+  core_models: "core/data/models"
+  core_metrics: "core/data/metrics"
+
+# Week definition for labels/aggregation (anchor Monday)
+week_anchor: "MON"
+
+default_username: "Tyains"

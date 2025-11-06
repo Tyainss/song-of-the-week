@@ -1,0 +1,24 @@
+# Last.fm extraction settings
+
+# API
+username: "Tyains"
+timeout_secs: 30
+
+# Output file names
+outputs:
+  scrobbles_csv: "lastfm_scrobbles.csv"
+  artists_csv:   "lastfm_artists.csv"
+  tracks_csv:    "lastfm_tracks.csv"
+  albums_csv:    "lastfm_albums.csv"
+
+# batching / paging
+batch_size: 200
+page_size: 1000
+page_limit: null
+courtesy_sleep_secs: 0.2
+
+# batching / paging
+page_limit: null
+timeout_secs: 30
+page_size: 1000
+courtesy_sleep_secs: 0.2
