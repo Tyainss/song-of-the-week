@@ -1,0 +1,17 @@
+
+# batching / paging
+timeout_secs: 30
+sleep_secs: 0.05
+batch_size: 50
+page_limit: null
+
+inputs:
+  scrobbles_csv: "lastfm_scrobbles.csv"
+
+outputs:
+  tracks_csv:    "spotify_tracks.csv"
+  albums_csv:    "spotify_albums.csv"
+  favorites_csv: "spotify_favorites.csv"
+
+# weekly favourites playlist
+favorites_playlist_id: "1fEZEREbZ12WvjOsdBoHxi"

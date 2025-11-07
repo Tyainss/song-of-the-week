@@ -1,0 +1,8 @@
+# MusicBrainz enrichment settings
+rate_limit_rps: 1          # 1 req/sec
+retry:
+  max_attempts: 3
+  backoff_secs: 1.0
+
+outputs:
+  artists_csv: "musicbrainz_artists.csv"

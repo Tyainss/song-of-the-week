@@ -34,6 +34,10 @@ class ConfigManager:
     def musicbrainz(self) -> Dict[str, Any]:
         """Return configs/musicbrainz.yaml as a dict."""
         return self._load_yaml(self.config_dir / "musicbrainz.yaml")
+    
+    def spotify(self) -> Dict[str, Any]:
+        """Return configs/spotify.yaml as a dict."""
+        return self._load_yaml(self.config_dir / "spotify.yaml")
 
     def load(self, name: str) -> Dict[str, Any]:
         """
