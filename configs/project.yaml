@@ -19,5 +19,3 @@ paths:
 
 # Week definition for labels/aggregation (anchor Monday)
 week_anchor: "MON"
-
-default_username: "Tyains"

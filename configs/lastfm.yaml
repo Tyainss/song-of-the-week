@@ -19,6 +19,6 @@ courtesy_sleep_secs: 0.2
 
 # batching / paging
 page_limit: null
-timeout_secs: 30
+batch_size: 200
 page_size: 1000
 courtesy_sleep_secs: 0.2
