@@ -78,7 +78,7 @@ def _resolve_window(cfg_lastfm: dict[str, Any], scrobbles_csv: Path) -> tuple[st
     return resolved_from_unix, resolved_to_unix
 
 
-def run_pipeline_incremental(
+def run_incremental(
     *,
     api: LastFMAPI,
     cfg_lastfm: dict[str, Any],

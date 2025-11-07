@@ -4,9 +4,8 @@ import pandas as pd
 
 from common.config_manager import ConfigManager
 from common.logging import setup_logging
-from common.utils.io import write_csv 
 from extraction.apis.lastfm import LastFMAPI
-from extraction.pipelines.lastfm_pipeline import run_pipeline_incremental # run_pipeline
+from extraction.pipelines.lastfm_pipeline import run_incremental
 
 
 def main() -> None:
@@ -41,14 +40,8 @@ def main() -> None:
         username=lastfm["username"],
         user_agent=project["user_agent"],
     )
-
-    # run pipeline and append to CSV
-    # df = run_pipeline(api=api, cfg_lastfm=lastfm, scrobble_start=scrobble_start)
-    # run full incremental pipeline (writes batches internally)
-    # if not df.empty:
-    #     write_csv(out_csv, df, append=out_csv.exists())
     
-    run_pipeline_incremental(
+    run_incremental(
         api=api,
         cfg_lastfm=lastfm,
         curated_dir=curated_dir,
