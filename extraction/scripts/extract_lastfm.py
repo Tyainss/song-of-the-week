@@ -40,7 +40,6 @@ def main() -> None:
         api_key=cfg.env("LASTFM_API_KEY", required=True),
         username=lastfm["username"],
         user_agent=project["user_agent"],
-        timeout_secs=lastfm["timeout_secs"],
     )
 
     # run pipeline and append to CSV

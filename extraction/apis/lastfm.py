@@ -2,7 +2,7 @@
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable
 
 import requests
 import pandas as pd
@@ -90,7 +90,7 @@ class LastFMAPI:
         }
         data = self._get(params)
         track_data = data.get("track", {}) if isinstance(data, dict) else {}
-        track_duration = int(track_data.get('duration')) // 1000    # in seconds
+        track_duration = int(track_data.get('duration', 0)) // 1000    # in seconds
 
         track_details = {
             "artist_name": artist,
@@ -177,6 +177,7 @@ class LastFMAPI:
         scrobble_start: int = 0,
         number_pages: int | None = None,
         courtesy_sleep_secs: float = 0.2,
+        on_batch: Callable | None = None,
     ) -> list[dict[str, Any]]:
         """
         Fetch recent tracks newest → oldest, respecting from/to and page window.
@@ -214,9 +215,9 @@ class LastFMAPI:
                 params["to"] = to_unix
 
             data = self._get(params)
-            print(params)
             tracks = data.get("recenttracks", {}).get("track", [])
             if not tracks:
+                logger.info(f"Page {page}: no tracks")
                 page -= 1
                 continue
 
@@ -228,7 +229,7 @@ class LastFMAPI:
             most_recent_txt = (tracks[0].get("date") or {}).get("#text") if tracks else None
             if most_recent_txt and from_unix:
                 most_recent_dt = pd.to_datetime(most_recent_txt, format="%d %b %Y, %H:%M", utc=True)
-                from_dt = pd.to_datetime(from_unix, unit="s", utc=True)
+                from_dt = pd.to_datetime(int(from_unix), unit="s", utc=True)
                 if from_dt >= most_recent_dt:
                     logger.info(f"Page {page}: newest item <= from_date ({most_recent_dt}); skipping page.")
                     page -= 1
@@ -236,6 +237,7 @@ class LastFMAPI:
                         time.sleep(courtesy_sleep_secs)
                     continue
 
+            batch: list[dict[str, Any]] = []
             for track in tracks:
                 if track.get("@attr", {}).get("nowplaying") == "true":
                     continue
@@ -247,11 +249,11 @@ class LastFMAPI:
                 # per-row bounds
                 row_dt = pd.to_datetime(date_txt, format="%d %b %Y, %H:%M", utc=True)
                 if from_unix:
-                    from_dt = pd.to_datetime(from_unix, unit="s", utc=True)
+                    from_dt = pd.to_datetime(int(from_unix), unit="s", utc=True)
                     if row_dt <= from_dt:
                         continue
                 if to_unix:
-                    to_dt = pd.to_datetime(to_unix, unit="s", utc=True)
+                    to_dt = pd.to_datetime(int(to_unix), unit="s", utc=True)
                     if row_dt > to_dt:
                         continue
 
@@ -260,124 +262,34 @@ class LastFMAPI:
                 artist_name = track["artist"].get("#text", "")
                 album_name = track["album"].get("#text", "")
 
+                # Convert to ISO-like format (UTC, no tz)
+                date_iso = row_dt.tz_convert(None).strftime("%Y-%m-%d %H:%M:%S")
+
                 scrobble_number += 1
                 entry = {
                     "scrobble_number": scrobble_number,
                     "username": self.username,
                     "track_name": track_name,
                     "track_mbid": track_mbid,
-                    "date": date_txt,
+                    "date": date_iso,
                     "artist_name": artist_name,
                     "artist_mbid": track["artist"].get("mbid", ""),
                     "album_name": album_name,
                     "album_mbid": track["album"].get("mbid", ""),
                 }
-                all_tracks.append(entry)
+                # all_tracks.append(entry)
+                if on_batch is not None:
+                    batch.append(entry)
+                else:
+                    all_tracks.append(entry)
 
             page -= 1
+            # flush per-page when batching
+            if on_batch is not None and batch:
+                on_batch(batch)
+                batch.clear()
             if courtesy_sleep_secs:
                 time.sleep(courtesy_sleep_secs)
 
         logger.info("Extraction finished: %d tracks collected", len(all_tracks))
         return all_tracks
-
-    def extract_tracks_paged(
-        self,
-        *,
-        from_unix: str | None,
-        to_unix: str | None,
-        limit: int,
-        number_pages: int | None,
-        courtesy_sleep_secs: float,
-        scrobble_start: int = 0,
-    ) -> list[list[dict[str, Any]]]:
-        """
-        Same logic as extract_tracks, but yields page-sized lists so callers can
-        write progress to CSV periodically. Ordering: newest → oldest.
-        """
-        total = self.total_pages(limit=limit, from_unix=from_unix, to_unix=to_unix)
-        first_page = 1 if number_pages is None else max(total - number_pages + 1, 1)
-
-        from_dt = pd.to_datetime(from_unix, unit="s", utc=True) if from_unix else None
-        to_dt = pd.to_datetime(to_unix, unit="s", utc=True) if to_unix else None
-
-        logger.info("Total pages: %d | Fetching from page %d down to %d", total, total, first_page)
-
-        scrobble_number = scrobble_start
-        page = total
-        page_batches: list[list[dict[str, Any]]] = []
-
-        while page >= first_page:
-            params = {
-                "method": "user.getrecenttracks",
-                "user": self.username,
-                "api_key": self.api_key,
-                "format": "json",
-                "page": page,
-                "limit": limit,
-                "extended": 0,
-            }
-            if from_unix:
-                params["from"] = from_unix
-            if to_unix:
-                params["to"] = to_unix
-
-            data = self._get(params)
-            tracks = (data.get("recenttracks") or {}).get("track", [])
-            if not tracks:
-                page -= 1
-                continue
-
-            if isinstance(tracks[0], dict) and tracks[0].get("@attr", {}).get("nowplaying") == "true":
-                tracks = tracks[1:]
-
-            most_recent_txt = (tracks[0].get("date") or {}).get("#text") if tracks else None
-            if most_recent_txt and from_dt is not None:
-                most_recent_dt = pd.to_datetime(most_recent_txt, format="%d %b %Y, %H:%M", utc=True)
-                if from_dt >= most_recent_dt:
-                    logger.info("Page %d: newest item <= from_date; skipping page.", page)
-                    page -= 1
-                    if courtesy_sleep_secs:
-                        time.sleep(courtesy_sleep_secs)
-                    continue
-
-            batch: list[dict[str, Any]] = []
-            kept_in_page = 0
-            for t in tracks:
-                if (t.get("@attr", {}) or {}).get("nowplaying") == "true":
-                    continue
-                date_txt = (t.get("date") or {}).get("#text")
-                if not date_txt:
-                    continue
-
-                row_dt = pd.to_datetime(date_txt, format="%d %b %Y, %H:%M", utc=True)
-                if from_dt is not None and row_dt <= from_dt:
-                    continue
-                if to_dt is not None and row_dt > to_dt:
-                    continue
-
-                scrobble_number += 1
-                record = {
-                    "scrobble_number": scrobble_number,
-                    "username": self.username,
-                    "track_name": t.get("name", "") or "",
-                    "track_mbid": t.get("mbid", "") or "",
-                    "date": date_txt,
-                    "artist_name": (t.get("artist") or {}).get("#text", "") or "",
-                    "artist_mbid": (t.get("artist") or {}).get("mbid", "") or "",
-                    "album_name": (t.get("album") or {}).get("#text", "") or "",
-                    "album_mbid": (t.get("album") or {}).get("mbid", "") or "",
-                }
-                batch.append(record)
-                kept_in_page += 1
-
-            logger.info("Page %d processed: kept %d tracks", page, kept_in_page)
-            if batch:
-                page_batches.append(batch)
-
-            page -= 1
-            if courtesy_sleep_secs:
-                time.sleep(courtesy_sleep_secs)
-
-        logger.info("Paged extraction finished with %d non-empty batches", len(page_batches))
-        return page_batches
