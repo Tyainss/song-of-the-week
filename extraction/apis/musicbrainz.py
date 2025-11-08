@@ -21,12 +21,10 @@ class MusicBrainzAPI:
         self,
         *,
         user_agent: str,
-        timeout_secs: int,
         sleep_secs: float = 1.0,
         base_url: str = "https://musicbrainz.org/ws/2",
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self.timeout_secs = timeout_secs
         self.sleep_secs = sleep_secs
 
         self.session = requests.Session()
@@ -34,7 +32,7 @@ class MusicBrainzAPI:
 
     def _get(self, path: str, params: dict[str, Any]) -> dict:
         url = f"{self.base_url}/{path.lstrip('/')}"
-        response = self.session.get(url, params=params, timeout=self.timeout_secs)
+        response = self.session.get(url, params=params)
         response.raise_for_status()
         return response.json()
 
@@ -62,7 +60,7 @@ class MusicBrainzAPI:
         country_1 = data.get("country", "")
         area = data.get("area")
         country_2 = area.get("iso-3166-1-codes", [""])[0] if area else None
-        country_name = helper.get_country_name_from_iso_code(country_2 if country_2 else country_1)
+        country_name = helper.country_name_from_iso2(country_2 if country_2 else country_1)
 
         life_span = data.get("life-span", {})
         career_begin = helper.format_date(life_span.get("begin"))
