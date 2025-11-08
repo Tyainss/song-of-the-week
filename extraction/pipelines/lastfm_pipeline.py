@@ -249,7 +249,7 @@ def run_incremental(
         for idx, (artist_name, album_name) in enumerate(album_pairs.itertuples(index=False), start=1):
             # fetch_album_info returns a list of per-track dicts for that album
             rows_for_album = api.fetch_album_info(artist=artist_name, album=album_name)
-            album_rows.extend(rows_for_album)
+            album_rows.append(rows_for_album)
 
             if idx % batch_size == 0:
                 df_album = pd.DataFrame(album_rows)
