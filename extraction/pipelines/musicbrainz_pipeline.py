@@ -28,24 +28,6 @@ def _dedupe_missing_by_mbid(artists_csv: Path, candidates: pd.DataFrame) -> pd.D
     return candidates[["artist_mbid"]].dropna().drop_duplicates()
 
 
-def _dedupe_missing_by_name(artists_csv: Path, candidates: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return unique artist_name values (where MBID is not available) that are not yet present in artists_csv.
-    """
-    if artists_csv.exists():
-        existing = read_csv(artists_csv, usecols=["artist_name", "artist_mbid"], safe=True)
-    else:
-        existing = pd.DataFrame(columns=["artist_name", "artist_mbid"])
-
-    # Only candidates with no MBID
-    name_only = candidates[candidates["artist_mbid"].isna()][["artist_name"]].dropna().drop_duplicates()
-
-    missing = (
-        name_only.merge(existing[["artist_name"]].dropna().drop_duplicates(), on="artist_name", how="left", indicator=True)
-        .query('_merge == "left_only"')
-        .drop(columns=["_merge"])
-    )
-    return missing.drop_duplicates()
 
 
 def run_incremental(
@@ -57,7 +39,7 @@ def run_incremental(
     """
     Incremental MB enrichment:
       1) Read scrobbles (artists seen so far).
-      2) Enrich artists with MBID first; then artist names without MBID.
+      2) Enrich artists with MBID
       3) Append to CSV in batches.
     """
     curated_dir.mkdir(parents=True, exist_ok=True)
@@ -99,29 +81,3 @@ def run_incremental(
             df = pd.DataFrame(rows)
             write_csv(artists_csv, df, append=artists_csv.exists())
             logger.info(f"Artists (MBID) appended ({len(df)} rows). Progress: {total_mbid}/{total_mbid}")
-
-    # 2) Missing by Name (no MBID available)
-    logger.info("MB Step 2/2: fetching artists by name (no MBID present)")
-    name_missing = _dedupe_missing_by_name(artists_csv, sc)
-    total_names = len(name_missing.index)
-    logger.info(f"Artists by name to fetch: {total_names}")
-
-    if total_names > 0:
-        rows: list[dict[str, Any]] = []
-        for idx, artist_name in enumerate(name_missing["artist_name"].tolist(), start=1):
-            info = api.fetch_artist_info_by_name(artist_name)
-            if info:
-                info["artist_name"] = artist_name
-                rows.append(info)
-            # if None, still skip silently; you asked to avoid extra guardrails
-
-            if idx % batch_size == 0 and rows:
-                df = pd.DataFrame(rows)
-                write_csv(artists_csv, df, append=artists_csv.exists())
-                logger.info(f"Artists (Name) appended ({len(df)} rows). Progress: {idx}/{total_names}")
-                rows.clear()
-
-        if rows:
-            df = pd.DataFrame(rows)
-            write_csv(artists_csv, df, append=artists_csv.exists())
-            logger.info(f"Artists (Name) appended ({len(df)} rows). Progress: {total_names}/{total_names}")

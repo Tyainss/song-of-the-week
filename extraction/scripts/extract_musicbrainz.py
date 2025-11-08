@@ -25,7 +25,6 @@ def main() -> None:
 
     api = MusicBrainzAPI(
         user_agent=project["user_agent"],
-        timeout_secs=mb["timeout_secs"],
         sleep_secs=mb["sleep_secs"],
     )
 
