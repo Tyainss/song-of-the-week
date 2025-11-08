@@ -16,10 +16,7 @@ def _unique_not_in(existing_csv: Path, columns: list[str], new_df: pd.DataFrame)
     Return unique rows from new_df[columns] that are not present in existing_csv[columns].
     """
     if existing_csv.exists():
-        try:
-            existing = pd.read_csv(existing_csv, usecols=columns)
-        except Exception:
-            existing = pd.read_csv(existing_csv)
+        existing = read_csv(existing_csv, usecols=columns, safe=True)
 
         merged = (
             new_df.merge(
@@ -54,10 +51,7 @@ def _resolve_window(cfg_lastfm: dict[str, Any], scrobbles_csv: Path) -> tuple[st
     resolved_to_unix = to_cfg
 
     if resolved_from_unix is None and scrobbles_csv.exists():
-        try:
-            existing_scrobbles = pd.read_csv(scrobbles_csv, usecols=["date"])
-        except Exception:
-            existing_scrobbles = pd.read_csv(scrobbles_csv)
+        existing_scrobbles = read_csv(scrobbles_csv, usecols=["date"], safe=True)
 
         if not existing_scrobbles.empty:
             s = existing_scrobbles["date"].dropna()
@@ -146,9 +140,8 @@ def run_incremental(
         return
 
     # Prepare deduplicated bases for enrichment steps
-    scrobbles_df = pd.read_csv(
-        scrobbles_csv,
-        usecols=["artist_name", "track_name", "album_name"],
+    scrobbles_df = read_csv(
+        scrobbles_csv, usecols=["artist_name", "track_name", "album_name"], safe=True
     ).drop_duplicates()
 
     # 2) Artists (missing only)
@@ -185,10 +178,7 @@ def run_incremental(
     logger.info("Step 3/4: extracting missing track info")
 
     if tracks_csv.exists():
-        try:
-            existing_tracks = pd.read_csv(tracks_csv, usecols=["artist", "name"])
-        except Exception:
-            existing_tracks = pd.read_csv(tracks_csv)
+        existing_tracks = read_csv(tracks_csv, usecols=["artist", "name"], safe=True)
         existing_tracks = existing_tracks.rename(columns={"artist": "artist_name", "name": "track_name"})
     else:
         existing_tracks = pd.DataFrame(columns=["artist_name", "track_name"])
@@ -233,10 +223,7 @@ def run_incremental(
     logger.info("Step 4/4: extracting missing album info")
 
     if albums_csv.exists():
-        try:
-            existing_albums = pd.read_csv(albums_csv, usecols=["artist_name", "album_name", "track_name"])
-        except Exception:
-            existing_albums = pd.read_csv(albums_csv)
+        existing_albums = read_csv(albums_csv, usecols=["artist_name", "album_name", "track_name"], safe=True)
     else:
         existing_albums = pd.DataFrame(columns=["artist_name", "album_name", "track_name"])
 

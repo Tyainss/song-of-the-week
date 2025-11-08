@@ -4,7 +4,7 @@ import logging
 
 import pandas as pd
 
-from common.utils.io import write_csv
+from common.utils.io import read_csv, write_csv
 from extraction.apis.musicbrainz import MusicBrainzAPI
 
 logger = logging.getLogger(__name__)
@@ -15,10 +15,7 @@ def _dedupe_missing_by_mbid(artists_csv: Path, candidates: pd.DataFrame) -> pd.D
     Return unique artist_mbid values in candidates that are not yet present in artists_csv.
     """
     if artists_csv.exists():
-        try:
-            existing = pd.read_csv(artists_csv, usecols=["artist_mbid"])
-        except Exception:
-            existing = pd.read_csv(artists_csv)
+        existing = read_csv(artists_csv, usecols=["artist_mbid"], safe=True)
         missing = (
             candidates[["artist_mbid"]]
             .dropna()
@@ -36,10 +33,7 @@ def _dedupe_missing_by_name(artists_csv: Path, candidates: pd.DataFrame) -> pd.D
     Return unique artist_name values (where MBID is not available) that are not yet present in artists_csv.
     """
     if artists_csv.exists():
-        try:
-            existing = pd.read_csv(artists_csv, usecols=["artist_name", "artist_mbid"])
-        except Exception:
-            existing = pd.read_csv(artists_csv)
+        existing = read_csv(artists_csv, usecols=["artist_name", "artist_mbid"], safe=True)
     else:
         existing = pd.DataFrame(columns=["artist_name", "artist_mbid"])
 
@@ -78,7 +72,7 @@ def run_incremental(
     batch_size = cfg_mb["batch_size"]
 
     # Base candidates from scrobbles
-    sc = pd.read_csv(scrobbles_csv, usecols=["artist_name", "artist_mbid"]).drop_duplicates()
+    sc = read_csv(scrobbles_csv, usecols=["artist_name", "artist_mbid"], safe=True).drop_duplicates()
 
     # 1) Missing by MBID
     logger.info("MB Step 1/2: fetching artists by MBID")

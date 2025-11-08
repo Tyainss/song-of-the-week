@@ -4,11 +4,6 @@ from pathlib import Path
 
 
 def write_csv(path: Path, df: pd.DataFrame, append: bool = False) -> None:
-    # path.parent.mkdir(parents=True, exist_ok=True)
-    # if append and path.exists():
-    #     df.to_csv(path, mode="a", index=False, header=False)
-    # else:
-    #     df.to_csv(path, index=False)
     """
     Always write LF line-endings and UTF-8 so git diffs are stable across OS.
     Avoid duplicate headers when appending.
@@ -33,5 +28,26 @@ def write_csv(path: Path, df: pd.DataFrame, append: bool = False) -> None:
         )
 
 
-def read_csv(path: Path, dtype: dict | None = None, parse_dates: list[str] | None = None) -> pd.DataFrame:
-    return pd.read_csv(path, dtype=dtype, parse_dates=parse_dates)
+def read_csv(
+    path: Path,
+    usecols: list[str] | None = None,
+    dtype: dict | None = None,
+    parse_dates: list[str] | None = None,
+    safe: bool = False,
+) -> pd.DataFrame:
+    """
+    Wrapper around pandas.read_csv with consistent defaults.
+    - usecols: same semantics as pandas.
+    - safe=True: if requested columns are missing, read file without usecols and
+      return only the intersection (no exception).
+    """
+    try:
+        return pd.read_csv(path, usecols=usecols, dtype=dtype, parse_dates=parse_dates)
+    except Exception:
+        if not safe:
+            raise
+        df = pd.read_csv(path, dtype=dtype, parse_dates=parse_dates)
+        if usecols:
+            keep = [c for c in usecols if c in df.columns]
+            return df[keep]
+        return df
