@@ -257,7 +257,7 @@ class SpotifyAPI:
             genre_primary = genres_list[0] if genres_list else None
 
         # features = self.get_audio_features_or_empty(track_id) if track_id else {}
-        features = {}
+        # features = {}
 
         # keep field names aligned with the schema
         row = {
@@ -269,16 +269,16 @@ class SpotifyAPI:
             "spotify_duration_ms": track.get("duration_ms"),
             "spotify_popularity": track.get("popularity"),
             "spotify_genres": genre_primary,
-            "spotify_danceability": features.get("danceability"),
-            "spotify_energy": features.get("energy"),
-            "spotify_valence": features.get("valence"),
-            "spotify_acousticness": features.get("acousticness"),
-            "spotify_instrumentalness": features.get("instrumentalness"),
-            "spotify_liveness": features.get("liveness"),
-            "spotify_speechiness": features.get("speechiness"),
-            "spotify_tempo": features.get("tempo"),
-            "spotify_mode": features.get("mode"),
-            "spotify_loudness": features.get("loudness"),
-            "spotify_time_signature": features.get("time_signature"),
+            # "spotify_danceability": features.get("danceability"),
+            # "spotify_energy": features.get("energy"),
+            # "spotify_valence": features.get("valence"),
+            # "spotify_acousticness": features.get("acousticness"),
+            # "spotify_instrumentalness": features.get("instrumentalness"),
+            # "spotify_liveness": features.get("liveness"),
+            # "spotify_speechiness": features.get("speechiness"),
+            # "spotify_tempo": features.get("tempo"),
+            # "spotify_mode": features.get("mode"),
+            # "spotify_loudness": features.get("loudness"),
+            # "spotify_time_signature": features.get("time_signature"),
         }
         return row
