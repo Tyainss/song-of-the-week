@@ -1,0 +1,11 @@
+# MusicBrainz extraction settings
+sleep_secs: 1
+
+# batching
+batch_size: 200
+
+inputs:
+  scrobbles_csv: "lastfm_scrobbles.csv"
+
+outputs:
+  artists_csv: "musicbrainz_artists.csv"

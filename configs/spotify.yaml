@@ -1,0 +1,19 @@
+# Spotify extraction settings
+
+# batching / paging
+timeout_secs: 30
+sleep_secs: 0.25
+batch_size: 50
+max_retry_after_secs: 120
+sleep_secs_per_batch: 10
+
+inputs:
+  scrobbles_csv: "lastfm_scrobbles.csv"
+
+outputs:
+  tracks_csv:    "spotify_tracks.csv"
+  albums_csv:    "spotify_albums.csv"
+  favorites_csv: "spotify_favorites.csv"
+
+# weekly favourites playlist
+favorites_playlist_id: "1fEZEREbZ12WvjOsdBoHxi"
