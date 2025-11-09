@@ -2,9 +2,10 @@
 
 # batching / paging
 timeout_secs: 30
-sleep_secs: 0.05
+sleep_secs: 0.25
 batch_size: 50
-page_limit: null
+max_retry_after_secs: 120
+sleep_secs_per_batch: 10
 
 inputs:
   scrobbles_csv: "lastfm_scrobbles.csv"

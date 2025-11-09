@@ -109,8 +109,29 @@ def _pull_playlist(api: SpotifyAPI, cfg_spotify, curated_dir: Path) -> None:
     ]].copy()
     df_curated["is_week_favorite"] = 1
 
-    write_csv(out_csv, df_curated, append=out_csv.exists())
-    logger.info(f"Favorites rows appended: {len(df_curated)}")
+    # Upsert into favorites: dedupe by (artist_name, track_name, week_saturday_utc),
+    # keeping the latest added_at_utc when duplicates exist.
+    if out_csv.exists():
+        existing = read_csv(out_csv, safe=True)
+        # ensure same columns (tolerate header drifts)
+        missing_cols = [c for c in df_curated.columns if c not in existing.columns]
+        for c in missing_cols:
+            existing[c] = None
+        existing = existing[df_curated.columns]
+        merged = pd.concat([existing, df_curated], ignore_index=True)
+    else:
+        merged = df_curated
+
+    # Prefer newest by added_at_utc, then drop duplicates on the business key
+    # (artist_name, track_name, week_saturday_utc)
+    if "added_at_utc" in merged.columns:
+        merged = merged.sort_values("added_at_utc")
+    merged = merged.drop_duplicates(
+        subset=["artist_name", "track_name", "week_saturday_utc"], keep="last"
+    )
+
+    write_csv(out_csv, merged, append=False)
+    logger.info(f"Favorites upserted. Current rows: {len(merged)}")
 
 
 def run_incremental(
@@ -168,5 +189,4 @@ def run_incremental(
             logger.info(f"Spotify rows appended ({len(df)}). Progress: {total_pending}/{total_pending}")
 
     # Curated favorites (labels)
-    # TODO: Make it upsert data
     _pull_playlist(api, cfg_spotify, curated_dir)

@@ -17,5 +17,5 @@ paths:
   core_models: "core/data/models"
   core_metrics: "core/data/metrics"
 
-# Week definition for labels/aggregation (anchor Monday)
-week_anchor: "MON"
+# Week definition for labels/aggregation
+week_anchor: "saturday"
