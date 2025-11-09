@@ -70,12 +70,12 @@ class MusicBrainzAPI:
 
         out = {
             "artist_mbid": artist_mbid,
-            "mb_artist_country": country_name,
-            "mb_artist_main_genre": main_genre,
-            "mb_artist_type": artist_type,
-            "mb_artist_career_begin": career_begin,
-            "mb_artist_career_end": career_end,
-            "mb_artist_career_ended": career_ended,
+            "mb_artist_country": country_name or "",
+            "mb_artist_type": artist_type or "",
+            "mb_artist_main_genre": main_genre or "",
+            "mb_artist_career_begin": career_begin or "",
+            "mb_artist_career_end": career_end or "",
+            "mb_artist_career_ended": 1.0 if bool(career_ended) else 0.0,
         }
         return out
 

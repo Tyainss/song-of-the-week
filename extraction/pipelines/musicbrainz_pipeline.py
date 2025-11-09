@@ -9,6 +9,15 @@ from extraction.apis.musicbrainz import MusicBrainzAPI
 
 logger = logging.getLogger(__name__)
 
+COLUMNS_ORDER = [
+    "artist_mbid",
+    "mb_artist_country",
+    "mb_artist_type",
+    "mb_artist_main_genre",
+    "mb_artist_career_begin",
+    "mb_artist_career_end",
+    "mb_artist_career_ended",
+]
 
 def _dedupe_missing_by_mbid(artists_csv: Path, candidates: pd.DataFrame) -> pd.DataFrame:
     """
@@ -73,11 +82,14 @@ def run_incremental(
 
             if idx % batch_size == 0:
                 df = pd.DataFrame(rows)
+                # enforce exact schema/order (drop anything extra)
+                df = df.reindex(columns=COLUMNS_ORDER)
                 write_csv(artists_csv, df, append=artists_csv.exists())
                 logger.info(f"Artists (MBID) appended ({len(df)} rows). Progress: {idx}/{total_mbid}")
                 rows.clear()
 
         if rows:
             df = pd.DataFrame(rows)
+            df = df.reindex(columns=COLUMNS_ORDER)
             write_csv(artists_csv, df, append=artists_csv.exists())
             logger.info(f"Artists (MBID) appended ({len(df)} rows). Progress: {total_mbid}/{total_mbid}")
