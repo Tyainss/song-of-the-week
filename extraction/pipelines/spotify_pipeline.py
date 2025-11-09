@@ -1,5 +1,6 @@
 
 from pathlib import Path
+import time
 import logging
 
 import pandas as pd
@@ -149,6 +150,7 @@ def run_incremental(
 
     if total_pending > 0:
         batch_rows = []
+        sleep_secs_per_batch = cfg_spotify.get("sleep_secs_per_batch", 10)
         for processed_count, row in enumerate(_generate_track_feature_rows(api, pending_pairs), start=1):
             batch_rows.append(row)
             if processed_count % batch_size == 0:
@@ -157,6 +159,8 @@ def run_incremental(
                     write_csv(tracks_output_csv, df, append=tracks_output_csv.exists())
                     logger.info(f"Spotify rows appended ({len(df)}). Progress: {processed_count}/{total_pending}")
                 batch_rows.clear()
+                if sleep_secs_per_batch and sleep_secs_per_batch > 0:
+                    time.sleep(sleep_secs_per_batch)
 
         if batch_rows:
             df = pd.DataFrame(batch_rows)
@@ -164,4 +168,5 @@ def run_incremental(
             logger.info(f"Spotify rows appended ({len(df)}). Progress: {total_pending}/{total_pending}")
 
     # Curated favorites (labels)
+    # TODO: Make it upsert data
     _pull_playlist(api, cfg_spotify, curated_dir)

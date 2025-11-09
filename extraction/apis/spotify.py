@@ -2,6 +2,7 @@
 import logging
 import time
 import base64
+from collections import OrderedDict
 
 import requests
 
@@ -28,11 +29,16 @@ class SpotifyAPI:
         user_agent: str,
         timeout_secs: int,
         sleep_secs: float = 0.0,
+        max_retry_after_secs: int = 120,
+        artist_cache_size: int = 5000,
     ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.timeout_secs = timeout_secs
         self.sleep_secs = sleep_secs
+        self.max_retry_after_secs = max_retry_after_secs
+        self.artist_cache_size = artist_cache_size
+        self._artist_cache = OrderedDict()  # artist_id -> artist json
 
         self.session = requests.Session()
         self.session.headers["User-Agent"] = user_agent
@@ -103,6 +109,12 @@ class SpotifyAPI:
                 # rate limit
                 if resp.status_code == 429:
                     retry_after = int(resp.headers.get("Retry-After", "1"))
+                    if retry_after > self.max_retry_after_secs:
+                        logger.info(
+                            f"Spotify 429 with Retry-After={retry_after}s exceeds cap "
+                            f"({self.max_retry_after_secs}s). Stopping so you can resume later."
+                        )
+                        raise RuntimeError("Rate limit window too long; aborting current run.")
                     logger.info(f"Spotify 429. Sleeping {retry_after}s and retrying.")
                     time.sleep(retry_after)
                     continue
@@ -179,6 +191,23 @@ class SpotifyAPI:
     def get_artist(self, artist_id: str) -> dict:
         return self._get(f"artists/{artist_id}")
 
+    def get_artist_cached(self, artist_id: str) -> dict:
+        """
+        LRU cache for artist lookups. Avoids repeated calls for the same artist_id.
+        """
+        cached = self._artist_cache.get(artist_id)
+        if cached is not None:
+            # refresh LRU order
+            self._artist_cache.move_to_end(artist_id)
+            return cached
+
+        data = self._get(f"artists/{artist_id}")
+        # insert with simple LRU eviction
+        self._artist_cache[artist_id] = data
+        if len(self._artist_cache) > self.artist_cache_size:
+            self._artist_cache.popitem(last=False)
+        return data
+
     def get_audio_features_or_empty(self, track_id: str) -> dict:
         """
         Audio features for a track.
@@ -223,11 +252,12 @@ class SpotifyAPI:
 
         genre_primary = None
         if artist_id:
-            artist_info = self.get_artist(artist_id)
+            artist_info = self.get_artist_cached(artist_id)
             genres_list = artist_info.get("genres") or []
             genre_primary = genres_list[0] if genres_list else None
 
-        features = self.get_audio_features_or_empty(track_id) if track_id else {}
+        # features = self.get_audio_features_or_empty(track_id) if track_id else {}
+        features = {}
 
         # keep field names aligned with the schema
         row = {

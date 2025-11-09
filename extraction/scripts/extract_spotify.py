@@ -30,6 +30,7 @@ def main() -> None:
         user_agent=project["user_agent"],
         timeout_secs=cfg_spotify["timeout_secs"],
         sleep_secs=cfg_spotify.get("sleep_secs", 0.0),
+        artist_cache_size=cfg_spotify.get("artist_cache_size", 5000),
     )
 
     run_incremental(
