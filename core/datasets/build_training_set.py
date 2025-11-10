@@ -256,6 +256,7 @@ def build_unified_dataset(repo_root="."):
     unified = _merge_favorites(unified, spotify_favorites_df)
 
     unified = _coalesce_col(unified, column='album_mbid')
+    unified = _coalesce_col(unified, column='artist_mbid')
 
     unified = _order_columns(
         unified,
