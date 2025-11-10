@@ -67,10 +67,11 @@ def _anchor_scrobbles_week(scrobbles_df):
         return scrobbles_df
     ts = pd.to_datetime(scrobbles_df["date"], utc=True, errors="coerce")
     weekday = ts.dt.weekday  # Mon=0 ... Sat=5, Sun=6
-    days_since_prev_sat = (weekday - 5) % 7
-    prev_sat = ts - pd.to_timedelta(days_since_prev_sat, unit="D")
+    # Map any date to the Saturday on or after it (same "Sat-ended week").
+    days_until_sat = (5 - weekday) % 7
+    next_sat = ts + pd.to_timedelta(days_until_sat, unit="D")
     scrobbles_df["week_saturday_utc"] = (
-        prev_sat.dt.tz_convert("UTC").dt.tz_localize(None).dt.strftime("%Y-%m-%d 00:00:00")
+        next_sat.dt.tz_convert("UTC").dt.tz_localize(None).dt.strftime("%Y-%m-%d 00:00:00")
     )
     return scrobbles_df
 
