@@ -135,7 +135,7 @@ def run_incremental(
         on_batch=_flush_scrobble_batch,
     )
 
-    if not scrobbles_csv.exists():
+    if not scrobbles_csv.exists() or written["n"] == 0:
         logger.info("No scrobbles extracted; stopping.")
         return
 
