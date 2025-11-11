@@ -61,6 +61,25 @@ def _normalize_join_keys(frames):
                 frame[column] = frame[column].astype(str)
     return frames
 
+def _make_key(s):
+    # Canonical string for joins: Unicode-normalized, trimmed, single-spaced, casefolded.
+    return (
+        s.astype(str)
+         .str.normalize("NFKC")
+         .str.strip()
+         .str.replace(r"\s+", " ", regex=True)
+         .str.casefold()
+    )
+
+def _add_name_keys(df, artist_col="artist_name", track_col="track_name", album_col="album_name"):
+    # Adds artist_key / track_key / album_key if source columns exist. Original columns preserved.
+    if artist_col in df.columns:
+        df["artist_key"] = _make_key(df[artist_col])
+    if track_col in df.columns:
+        df["track_key"] = _make_key(df[track_col])
+    if album_col in df.columns:
+        df["album_key"] = _make_key(df[album_col])
+    return df
 
 def _anchor_scrobbles_week(scrobbles_df):
     if "date" not in scrobbles_df.columns:
@@ -77,84 +96,106 @@ def _anchor_scrobbles_week(scrobbles_df):
 
 def _merge_lastfm_tracks(unified_df: pd.DataFrame, lastfm_tracks_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Join Last.fm track-level info (e.g., track_duration) on ['artist_name', 'track_name'].
+    Join Last.fm track-level info
     """
-    need = {"artist_name", "track_name"}
+    need = {"artist_key", "track_key"}
     if lastfm_tracks_df.empty or not need.issubset(lastfm_tracks_df.columns):
         return unified_df
-    right = lastfm_tracks_df.drop_duplicates(subset=["artist_name", "track_name"])
+    right = lastfm_tracks_df.drop_duplicates(subset=["artist_key", "track_key"])
+    # Keep join keys + columns not already present on the left, and drop raw display cols
+    drop_names = {"artist_name", "track_name", "album_name"}
+    right_cols = list(need) + [c for c in right.columns
+                               if c not in unified_df.columns and c not in drop_names]
+    right = right[right_cols]
     return unified_df.merge(
         right,
         how="left",
-        on=["artist_name", "track_name"],
+        on=["artist_key", "track_key"],
         sort=False,
     )
 
 
 def _merge_lastfm_artists(unified_df: pd.DataFrame, lastfm_artists_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Join Last.fm artist-level stats (artist_listeners, artist_playcount) on ['artist_name'].
+    Join Last.fm artist-level stats on canonical key.
     """
-    if lastfm_artists_df.empty or "artist_name" not in lastfm_artists_df.columns:
+    if lastfm_artists_df.empty or "artist_key" not in lastfm_artists_df.columns:
         return unified_df
-    right = lastfm_artists_df.drop_duplicates(subset=["artist_name"])
+    right = lastfm_artists_df.drop_duplicates(subset=["artist_key"])
+    drop_names = {"artist_name", "track_name", "album_name"}
+    right_cols = ["artist_key"] + [c for c in right.columns
+                                   if c not in unified_df.columns and c not in drop_names]
+    right = right[right_cols]
     return unified_df.merge(
         right,
         how="left",
-        on=["artist_name"],
+        on=["artist_key"],
         sort=False,
     )
 
 
 def _merge_lastfm_albums(unified_df: pd.DataFrame, lastfm_albums_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Join Last.fm album-level stats (album_listeners, album_playcount) on ['artist_name', 'album_name'].
+    Join Last.fm album-level stats on canonical keys.
     """
-    need = {"artist_name", "album_name"}
+    need = {"artist_key", "album_key"}
     if lastfm_albums_df.empty or not need.issubset(lastfm_albums_df.columns):
         return unified_df
-    right = lastfm_albums_df.drop_duplicates(subset=["artist_name", "album_name"])
+    right = lastfm_albums_df.drop_duplicates(subset=["artist_key", "album_key"])
+    drop_names = {"artist_name", "track_name", "album_name"}
+    right_cols = list(need) + [c for c in right.columns
+                               if c not in unified_df.columns and c not in drop_names]
+    right = right[right_cols]
     return unified_df.merge(
         right,
         how="left",
-        on=["artist_name", "album_name"],
+        on=["artist_key", "album_key"],
         sort=False,
     )
 
 
 def _merge_musicbrainz(unified_df, musicbrainz_artists_df):
-    if musicbrainz_artists_df.empty or "artist_name" not in musicbrainz_artists_df.columns:
+    if musicbrainz_artists_df.empty or "artist_key" not in musicbrainz_artists_df.columns:
         return unified_df
+    # Avoid suffixes by pruning overlapping columns
+    right = musicbrainz_artists_df.drop_duplicates(subset=["artist_key"])
+    drop_names = {"artist_name", "track_name", "album_name"}
+    right_cols = ["artist_key"] + [c for c in right.columns
+                                   if c not in unified_df.columns and c not in drop_names]
+    right = right[right_cols]
     return unified_df.merge(
-        musicbrainz_artists_df,
+        right,
         how="left",
-        on=["artist_name"],
-        suffixes=("", "_mb"),
+        on=["artist_key"],
         sort=False,
     )
 
 
 def _merge_spotify_tracks(unified_df, spotify_tracks_df):
-    if spotify_tracks_df.empty or not {"artist_name", "track_name"}.issubset(spotify_tracks_df.columns):
+    if spotify_tracks_df.empty or not {"artist_key", "track_key"}.issubset(spotify_tracks_df.columns):
         return unified_df
+    right = spotify_tracks_df.drop_duplicates(subset=["artist_key", "track_key"])
+    drop_names = {"artist_name", "track_name", "album_name"}
+    right_cols = ["artist_key", "track_key"] + [c for c in right.columns
+                                               if c not in unified_df.columns and c not in drop_names]
+    right = right[right_cols]
     return unified_df.merge(
-        spotify_tracks_df,
+        right,
         how="left",
-        on=["artist_name", "track_name"],
-        suffixes=("", "_sp"),
+        on=["artist_key", "track_key"],
         sort=False,
     )
 
 
 def _merge_favorites(unified_df, spotify_favorites_df):
-    need_cols = {"artist_name", "track_name", "week_saturday_utc"}
+    need_cols = {"artist_key", "track_key", "week_saturday_utc"}
     if spotify_favorites_df.empty or not need_cols.issubset(spotify_favorites_df.columns):
         return unified_df
-    label_cols = [c for c in ["artist_name", "track_name", "week_saturday_utc", "is_week_favorite", "added_at_utc"] if c in spotify_favorites_df.columns]
+    label_cols = [c for c in ["artist_key", "track_key", "week_saturday_utc", "is_week_favorite", "added_at_utc"] if c in spotify_favorites_df.columns]
     out = unified_df.merge(
         spotify_favorites_df[label_cols],
         how="left",
-        on=["artist_name", "track_name", "week_saturday_utc"],
+        on=["artist_key", "track_key", "week_saturday_utc"],
         sort=False,
     )
     if "is_week_favorite" in out.columns:
@@ -247,6 +288,15 @@ def build_unified_dataset(repo_root="."):
         spotify_favorites_df,
     ])
     scrobbles_df = _anchor_scrobbles_week(scrobbles_df)
+
+    # Canonical keys across all datasets
+    scrobbles_df = _add_name_keys(scrobbles_df)
+    lastfm_tracks_df = _add_name_keys(lastfm_tracks_df)
+    lastfm_artists_df = _add_name_keys(lastfm_artists_df, track_col=None, album_col=None)
+    lastfm_albums_df = _add_name_keys(lastfm_albums_df)
+    musicbrainz_artists_df = _add_name_keys(musicbrainz_artists_df, track_col=None, album_col=None)
+    spotify_tracks_df = _add_name_keys(spotify_tracks_df)
+    spotify_favorites_df = _add_name_keys(spotify_favorites_df)
 
     unified = scrobbles_df
     unified = _merge_lastfm_artists(unified, lastfm_artists_df)
