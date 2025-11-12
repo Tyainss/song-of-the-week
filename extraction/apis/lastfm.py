@@ -40,17 +40,25 @@ class LastFMAPI:
         """
         Execute a GET request to Last.fm and return the JSON payload.
         """
-        # response = self.session.get(self.base_url, params=params, timeout=30)
-        # response.raise_for_status()
-        # data = response.json()
-        response = requests.get(self.base_url, params=params)
-        try:
-            data = response.json()
-        except Exception as e:
-            logger.error(f'Error {e} fetching data')
-            data = {}
-
-        return data
+        retries = 3
+        backoff = 0.6
+        for attempt in range(1, retries + 1):
+            try:
+                response = self.session.get(self.base_url, params=params, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+                # Last.fm can return {"error": ..., "message": ...}
+                if isinstance(data, dict) and data.get("error"):
+                    err = data.get("error")
+                    msg = data.get("message")
+                    logger.warning(f"Last.fm error {err}: {msg} | params={params}")
+                    raise RuntimeError(msg or "lastfm error")
+                return data
+            except Exception as e:
+                if attempt == retries:
+                    logger.error(f"Request failed after {retries} attempts: {e} | params={params}")
+                    return {}
+                time.sleep(backoff * attempt)
 
     def fetch_user_profile(self) -> list[dict[str, Any]]:
         """
@@ -216,6 +224,17 @@ class LastFMAPI:
 
             data = self._get(params)
             tracks = data.get("recenttracks", {}).get("track", [])
+            # Be resilient to transient "empty page" responses
+            tries_left = 3
+            while True:
+                data = self._get(params)
+                tracks = data.get("recenttracks", {}).get("track", [])
+                if tracks or tries_left == 0:
+                    break
+                logger.warning(f"Page {page}: empty payload; retrying")
+                tries_left -= 1
+                if courtesy_sleep_secs:
+                    time.sleep(courtesy_sleep_secs)
             if not tracks:
                 logger.info(f"Page {page}: no tracks")
                 page -= 1
@@ -291,5 +310,8 @@ class LastFMAPI:
             if courtesy_sleep_secs:
                 time.sleep(courtesy_sleep_secs)
 
-        logger.info("Extraction finished: %d tracks collected", len(all_tracks))
+        if on_batch is not None:
+            logger.info("Extraction finished (batched writes).")
+        else:
+            logger.info("Extraction finished: %d tracks collected", len(all_tracks))
         return all_tracks

@@ -41,6 +41,23 @@ def _generate_track_feature_rows(api: SpotifyAPI, pending_pairs: pd.DataFrame):
         if row:
             yield row
 
+def _apply_manual_playlist_fixes(df: pd.DataFrame) -> pd.DataFrame:
+    """These manual fixes ensure a match with LastFM scrobbles, caused by inconsistencies"""
+    # Track-only renames
+    track_renames = {
+        "Mysterons - Live": "Mysterons (Live)",
+        "Phoenix": "Phoenix (feat. Fleet Foxes & Anaïs Mitchell)",
+        "Bonita Applebum": "Bonita Applebum - includes 'Can I Kick It' Intro",
+        "Pronto": "Careless",
+    }
+    df.loc[df["track_name"].isin(track_renames.keys()), "track_name"] = (
+        df["track_name"].map(lambda x: track_renames.get(x, x))
+    )
+    # Special case: change both artist and track
+    mask = (df["track_name"] == "Love More") & (df["artist_name"] == "Fiona Apple")
+    df.loc[mask, "track_name"]  = "Love More (By Fiona Apple)"
+    df.loc[mask, "artist_name"] = "Sharon Van Etten"
+    return df
 
 def _pull_playlist(api: SpotifyAPI, cfg_spotify, curated_dir: Path) -> None:
     """
@@ -75,6 +92,9 @@ def _pull_playlist(api: SpotifyAPI, cfg_spotify, curated_dir: Path) -> None:
         return
 
     df = pd.DataFrame(rows)
+
+    # Apply manual cleanup so downstream joins match cleanly
+    df = _apply_manual_playlist_fixes(df)
 
     # Normalize timestamp to UTC tz-naive string
     # Spotify added_at is RFC3339 with Z (UTC). Keep tz-naive strings in curated layer.

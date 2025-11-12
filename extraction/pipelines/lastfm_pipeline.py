@@ -135,7 +135,7 @@ def run_incremental(
         on_batch=_flush_scrobble_batch,
     )
 
-    if not scrobbles_csv.exists():
+    if not scrobbles_csv.exists() or written["n"] == 0:
         logger.info("No scrobbles extracted; stopping.")
         return
 
@@ -178,7 +178,7 @@ def run_incremental(
     logger.info("Step 3/4: extracting missing track info")
 
     if tracks_csv.exists():
-        existing_tracks = read_csv(tracks_csv, usecols=["artist", "name"], safe=True)
+        existing_tracks = read_csv(tracks_csv, safe=True)
         existing_tracks = existing_tracks.rename(columns={"artist": "artist_name", "name": "track_name"})
     else:
         existing_tracks = pd.DataFrame(columns=["artist_name", "track_name"])
