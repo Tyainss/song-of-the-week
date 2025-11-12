@@ -57,8 +57,27 @@ def build_weekly_base(df):
         agg_week["is_week_favorite"] = 0
     agg_week["is_week_favorite"] = agg_week["is_week_favorite"].fillna(0).astype(int)
 
-    # carry stable metadata if available (latest row in that week)
-    carry_cols = [c for c in ["spotify_release_date", "spotify_popularity", "spotify_genres"] if c in df.columns]
+    requested_carry = [
+        # IDs / keys (for EDA & traceability; will be dropped for modeling)
+        "track_mbid", "artist_mbid", "album_mbid",
+        "track_key", "artist_key", "album_key",
+        "spotify_track_id",
+        # static facts / genres / popularity
+        "track_duration",
+        "spotify_release_date", "release_date_granularity",
+        "spotify_genres", "genre_bucket", "genre_missing",
+        "spotify_popularity",
+        # listeners / playcounts (potentially leaky; kept for EDA, dropped for model)
+        "artist_listeners", "artist_playcount",
+        "album_listeners", "album_playcount",
+        # data-quality flags
+        "date_was_missing", "added_at_utc_was_missing",
+        "week_saturday_utc_was_missing", "spotify_release_date_was_missing",
+        "artist_listeners_was_missing", "artist_playcount_was_missing",
+        "album_listeners_was_missing", "album_playcount_was_missing",
+        "spotify_popularity_was_missing",
+    ]
+    carry_cols = [c for c in requested_carry if c in df.columns]
     if carry_cols:
         df_sorted = df.sort_values(["artist_name", "track_name", "__wk", "__ts"])
         meta = (
