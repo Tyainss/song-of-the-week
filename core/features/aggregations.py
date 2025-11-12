@@ -153,16 +153,20 @@ def add_momentum_ratio(df, window: int, col_name: str = None):
 # ---- History & novelty ----
 def add_prior_scrobbles_all_time(df):
     df = df.copy().sort_values(["artist_name", "track_name", "week_saturday_dt"], kind="stable")
-    g = df.groupby(["artist_name", "track_name"], sort=False, group_keys=False)
-    df["prior_scrobbles_all_time"] = g["scrobbles_week"].cumsum().shift(1).fillna(0).astype("Int64")
+    g = df.groupby(["artist_name", "track_name"], sort=False)
+    # prior = cumulative sum up to previous row within each track
+    csum = g["scrobbles_week"].transform("cumsum")
+    df["prior_scrobbles_all_time"] = (csum - df["scrobbles_week"]).astype("Int64")
     return df
 
 
 def add_prior_weeks_with_scrobbles(df):
     df = df.copy().sort_values(["artist_name", "track_name", "week_saturday_dt"], kind="stable")
-    g = df.groupby(["artist_name", "track_name"], sort=False, group_keys=False)
-    prior_weeks = g["scrobbles_week"].apply(lambda s: (s > 0).astype(int).cumsum()).shift(1).fillna(0).astype("Int64")
-    df["prior_weeks_with_scrobbles"] = prior_weeks
+    g = df.groupby(["artist_name", "track_name"], sort=False)
+    # cumulative count of weeks with ≥1 scrobble, excluding current week
+    pos = (df["scrobbles_week"] > 0).astype(int)
+    cum_pos = g[["scrobbles_week"]].transform(lambda s: (s > 0).astype(int).cumsum())["scrobbles_week"]
+    df["prior_weeks_with_scrobbles"] = (cum_pos - pos).astype("Int64")
     return df
 
 

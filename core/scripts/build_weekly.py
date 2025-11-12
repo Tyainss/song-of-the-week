@@ -20,14 +20,14 @@ def run(repo_root: Path) -> Path:
     setup_logging(project)
 
     processed_dir = Path(project["paths"]["core_processed"])
-    src = processed_dir / "dataset_full.csv"
+    src = processed_dir / "dataset_clean.csv"
     dst = processed_dir / "weekly_table.csv"
 
     if not src.exists():
-        raise FileNotFoundError(f"dataset_full.csv not found at: {src}")
+        raise FileNotFoundError(f"dataset_clean.csv not found at: {src}")
 
     df = read_csv(src, safe=True)
-    logger.info(f"Loaded dataset_full.csv: {len(df)} rows")
+    logger.info(f"Loaded dataset_clean.csv: {len(df)} rows")
 
     weekly_base = build_weekly_base(df)
     logger.info(f"Weekly base built: {len(weekly_base)} rows")
