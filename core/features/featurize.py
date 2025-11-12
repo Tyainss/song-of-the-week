@@ -1,4 +1,7 @@
+
 import pandas as pd
+from sklearn.feature_extraction import DictVectorizer
+from sklearn.feature_selection import mutual_info_classif
 
 
 # ---------------------------
@@ -69,7 +72,8 @@ def select_feature_columns(df: pd.DataFrame) -> list[str]:
     ]
     # be flexible: whichever released_within_*d the weekly builder produced
     rel_flags = [c for c in df.columns if c.startswith("released_within_") and c.endswith("d")]
-    cols = [c for c in core + rel_flags if c in df.columns]
+    genre_ohe = [c for c in df.columns if c.startswith("genre__")]
+    cols = [c for c in core + rel_flags + genre_ohe if c in df.columns]
     return cols
 
 
@@ -106,6 +110,73 @@ def remove_high_corr_features(X: pd.DataFrame) -> pd.DataFrame:
     return X.drop(columns=[c for c in to_drop if c in X.columns], errors="ignore")
 
 # ---------------------------
+# One Hot Encoding
+# ---------------------------
+def _collapse_rare_levels(series: pd.Series, min_freq: int) -> pd.Series:
+    s = series.fillna("unknown").astype(str)
+    vc = s.value_counts(dropna=False)
+    keep = set(vc[vc >= max(1, int(min_freq))].index.tolist())
+    return s.where(s.isin(keep), other="other")
+
+def fit_dv_ohe(
+    df: pd.DataFrame,
+    column: str,
+    min_freq: int = 20,
+    prefix: str | None = None,
+    keep_original: bool = True,
+) -> tuple[pd.DataFrame, DictVectorizer, list[str]]:
+    """
+    Fit + transform OHE for a single categorical column using DictVectorizer.
+    - Collapses rare levels before fitting (>= min_freq kept, others -> 'other').
+    - Builds columns as '{prefix}__{level}' where prefix defaults to the column name.
+    - Returns (df_with_ohe, fitted_dv, feature_names).
+    """
+    out = df.copy()
+    if column not in out.columns:
+        return out, DictVectorizer(sparse=False), []
+
+    pfx = prefix or column
+    cats = _collapse_rare_levels(out[column], min_freq=min_freq)
+    records = [{pfx: v} for v in cats]
+
+    dv = DictVectorizer(sparse=False)
+    mat = dv.fit_transform(records)
+    levels = [f"{pfx}__{name.split('=')[-1]}" for name in dv.get_feature_names_out()]
+    for j, name in enumerate(levels):
+        out[name] = mat[:, j].astype(int)
+
+    if not keep_original:
+        out = out.drop(columns=[column])
+    return out, dv, levels
+
+def transform_dv_ohe(
+    df: pd.DataFrame,
+    dv: DictVectorizer,
+    column: str,
+    prefix: str | None = None,
+    keep_original: bool = True,
+) -> pd.DataFrame:
+    """
+    Transform-only with a previously fitted DictVectorizer for the same column/prefix.
+    - Unseen levels map to all-zeros across DV columns.
+    """
+    out = df.copy()
+    if column not in out.columns:
+        return out
+
+    pfx = prefix or column
+    cats = out[column].fillna("unknown").astype(str)
+    records = [{pfx: v} for v in cats]
+    mat = dv.transform(records)
+    levels = [f"{pfx}__{name.split('=')[-1]}" for name in dv.get_feature_names_out()]
+    for j, name in enumerate(levels):
+        out[name] = mat[:, j].astype(int)
+
+    if not keep_original:
+        out = out.drop(columns=[column])
+    return out
+
+# ---------------------------
 # Imputation
 # ---------------------------
 def impute_days_since_release(df: pd.DataFrame) -> pd.DataFrame:
@@ -134,13 +205,21 @@ def make_weekly_for_model(df_weekly: pd.DataFrame, label_start_dt: pd.Timestamp)
       - Drop identifier/key columns
       - Drop known leaky columns
       - Drop explicit high-correlation features (fixed list)
+      - Add OHE for genre_bucket (DictVectorizer-based)
     """
     filtered = filter_label_period(df_weekly, label_start_dt)
     imputed = impute_days_since_release(filtered)
     no_ids = drop_identifier_columns(imputed)
     no_leaks = drop_leaky_columns(no_ids)
     no_redundant = remove_high_corr_features(no_leaks)
-    return no_redundant
+    with_ohe, _dv, _cols = fit_dv_ohe(
+        no_redundant,
+        column="genre_bucket",
+        min_freq=20,
+        prefix="genre",
+        keep_original=True,
+    )
+    return with_ohe
 
 
 def make_X_y(weekly_for_model: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
