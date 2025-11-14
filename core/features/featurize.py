@@ -49,6 +49,9 @@ def filter_label_period(df: pd.DataFrame, label_start_dt: pd.Timestamp) -> pd.Da
 # ---------------------------
 def select_feature_columns(df: pd.DataFrame) -> list[str]:
     core = [
+        # original metadata
+        "spotify_popularity",
+        "track_duration"
         # base weekly counts
         "scrobbles_week",
         "unique_days_week",
@@ -80,8 +83,8 @@ def select_feature_columns(df: pd.DataFrame) -> list[str]:
 def drop_leaky_columns(df: pd.DataFrame) -> pd.DataFrame:
     leaky = {
         # "spotify_popularity",
-        "artist_listeners", "artist_playcount",
-        "album_listeners", "album_playcount",
+        # "artist_listeners", "artist_playcount",
+        # "album_listeners", "album_playcount",
     }
     keep = [c for c in df.columns if c not in leaky]
     return df[keep]
@@ -101,12 +104,16 @@ def drop_identifier_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def remove_high_corr_features(X: pd.DataFrame) -> pd.DataFrame:
     """
-    Explicit, fixed list of redundant features to drop due to high spearman correlation
+    Explicit, fixed list of redundant features to drop due to high Spearman correlation.
+    Kept simple and deterministic:
+      - drops prior_weeks_with_scrobbles
+      - drops weeks_since_first_scrobble
+    both of which are strongly correlated with prior_scrobbles_all_time.
     """
     to_drop = [
         "prior_weeks_with_scrobbles",
         "weeks_since_first_scrobble",
-    ] # correlated with "prior_scrobbles_all_time"
+    ]
     return X.drop(columns=[c for c in to_drop if c in X.columns], errors="ignore")
 
 # ---------------------------
@@ -199,34 +206,40 @@ def impute_days_since_release(df: pd.DataFrame) -> pd.DataFrame:
 def make_weekly_for_model(df_weekly: pd.DataFrame, label_start_dt: pd.Timestamp) -> pd.DataFrame:
     """
     Returns a modeling-view weekly table (ready for training notebooks).
+
     Steps:
       - Filter to label period
       - Impute days_since_release (+ flag)
-      - Drop identifier/key columns
       - Drop known leaky columns
       - Drop explicit high-correlation features (fixed list)
-      - Add OHE for genre_bucket (DictVectorizer-based)
+
+    Notes
+    -----
+    - Keeps identifier-like columns (artist_name, track_name, week_saturday_utc,
+      week_saturday_dt, keys, IDs) so notebooks can:
+        * perform time-based train/val/test splits
+        * run audits and debugging on specific tracks/weeks
+    - One-Hot Encoding is intentionally *not* applied here.
+      OHE should be applied in the modeling code *after* the temporal split,
+      fitting the DictVectorizer only on the training data.
     """
     filtered = filter_label_period(df_weekly, label_start_dt)
     imputed = impute_days_since_release(filtered)
-    no_ids = drop_identifier_columns(imputed)
-    no_leaks = drop_leaky_columns(no_ids)
+    no_leaks = drop_leaky_columns(imputed)
     no_redundant = remove_high_corr_features(no_leaks)
-    with_ohe, _dv, _cols = fit_dv_ohe(
-        no_redundant,
-        column="genre_bucket",
-        min_freq=20,
-        prefix="genre",
-        keep_original=True,
-    )
-    return with_ohe
+    return no_redundant
 
 
 def make_X_y(weekly_for_model: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Builds X and y DataFrames from the weekly modeling view:
-    - Selects core feature columns (+ any released_within_* flag present)
-    - (IDs/leaky already removed upstream in make_weekly_for_model)
+    Builds X and y DataFrames from the weekly modeling view.
+
+    - X: only feature columns returned by `select_feature_columns`
+          (Core V1 features + any released_within_*d + genre__* if present).
+    - y: single-column DataFrame with `is_week_favorite`.
+
+    The input `weekly_for_model` is expected to still contain identifiers and
+    week columns, but they are not included in X.
     """
     feat_cols = select_feature_columns(weekly_for_model)
     X = weekly_for_model[feat_cols]
