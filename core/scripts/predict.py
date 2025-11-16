@@ -77,7 +77,33 @@ class PredictionResponse(BaseModel):
 
 
 class PredictionRequest(BaseModel):
-    tracks: List[Dict[str, Any]]
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "tracks": [
+                    {
+                        "spotify_popularity": 45,
+                        "track_duration": 210,
+                        "scrobbles_week": 12,
+                        "unique_days_week": 3,
+                        "scrobbles_last_fri_sat": 5,
+                        "scrobbles_saturday": 3,
+                        "last_scrobble_gap_days": 0.5,
+                        "within_week_rank_by_scrobbles": 2,
+                        "scrobbles_prev_1w": 8,
+                        "scrobbles_prev_4w": 20,
+                        "week_over_week_change": 4,
+                        "momentum_4w_ratio": 1.2,
+                        "prior_scrobbles_all_time": 30,
+                        "first_seen_week": 0,
+                        "days_since_release": 10,
+                        "released_within_28d": 1,
+                        "genre_bucket": "hip_hop_rap"
+                    }
+                ]
+            }
+        }
+    }
 
 
 def _load_artifacts(repo_root: Path) -> Dict[str, Any]:
