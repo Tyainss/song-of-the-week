@@ -19,3 +19,9 @@ paths:
 
 # Week definition for labels/aggregation
 week_anchor: "saturday"
+
+modeling:
+  label_start_saturday_utc: "2021-01-02"
+  weekly_for_model_filename: "weekly_for_model.csv"
+  model_filename: "model.bin"
+  logreg_metrics_filename: "logreg_final_metrics.json"

@@ -1,4 +1,5 @@
 
+import json
 import pandas as pd
 from pathlib import Path
 
@@ -51,3 +52,17 @@ def read_csv(
             keep = [c for c in usecols if c in df.columns]
             return df[keep]
         return df
+
+def write_json(path: Path, data: dict, indent: int = 2) -> None:
+    """
+    Write a JSON file with UTF-8 encoding and pretty-printing.
+    Creates parent directories if needed.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(
+            data,
+            f,
+            ensure_ascii=False,
+            indent=indent,
+        )

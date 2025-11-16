@@ -49,15 +49,19 @@ def run(repo_root: Path) -> dict[str, Path]:
     write_csv(weekly_for_model_path, weekly_for_model, append=False)
     logger.info(f"Wrote weekly_for_model.csv ({len(weekly_for_model)}) -> {weekly_for_model_path}")
 
-    # Build X, y
-    X, y = make_X_y(weekly_for_model)
-    X_path = features_dir / "X.csv"
-    y_path = features_dir / "y.csv"
-    write_csv(X_path, X, append=False)
-    write_csv(y_path, y, append=False)
-    logger.info(f"Wrote X.csv {tuple(X.shape)} and y.csv {tuple(y.shape)} in {features_dir}")
+    # # Build X, y
+    # X, y = make_X_y(weekly_for_model)
+    # X_path = features_dir / "X.csv"
+    # y_path = features_dir / "y.csv"
+    # write_csv(X_path, X, append=False)
+    # write_csv(y_path, y, append=False)
+    # logger.info(f"Wrote X.csv {tuple(X.shape)} and y.csv {tuple(y.shape)} in {features_dir}")
 
-    return {"weekly_for_model": weekly_for_model_path, "X": X_path, "y": y_path}
+    return {
+        "weekly_for_model": weekly_for_model_path, 
+        # "X": X_path, 
+        # "y": y_path
+    }
 
 
 def main():
