@@ -51,7 +51,7 @@ def select_feature_columns(df: pd.DataFrame) -> list[str]:
     core = [
         # original metadata
         "spotify_popularity",
-        "track_duration"
+        "track_duration",
         # base weekly counts
         "scrobbles_week",
         "unique_days_week",
@@ -67,8 +67,9 @@ def select_feature_columns(df: pd.DataFrame) -> list[str]:
         "momentum_4w_ratio",
         # history & novelty
         "prior_scrobbles_all_time",
-        "prior_weeks_with_scrobbles",
-        "weeks_since_first_scrobble",
+        # prior_weeks_with_scrobbles and weeks_since_first_scrobble are
+        # deliberately *not* included here because they are dropped by
+        # remove_high_corr_features (highly correlated with prior_scrobbles_all_time).
         "first_seen_week",
         # release (days)
         "days_since_release",
@@ -82,9 +83,13 @@ def select_feature_columns(df: pd.DataFrame) -> list[str]:
 
 def drop_leaky_columns(df: pd.DataFrame) -> pd.DataFrame:
     leaky = {
-        # "spotify_popularity",
-        # "artist_listeners", "artist_playcount",
-        # "album_listeners", "album_playcount",
+        # Global listener/playcount counters are not aligned to the weekly snapshot
+        # and are treated as potentially leaky / too global. We keep them in the
+        # raw weekly table for EDA but drop them for modeling.
+        "artist_listeners",
+        "artist_playcount",
+        "album_listeners",
+        "album_playcount",
     }
     keep = [c for c in df.columns if c not in leaky]
     return df[keep]
