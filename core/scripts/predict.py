@@ -77,6 +77,8 @@ class PredictionResponse(BaseModel):
 
 
 class PredictionRequest(BaseModel):
+    tracks: List[Dict[str, Any]]
+    
     model_config = {
         "json_schema_extra": {
             "example": {
