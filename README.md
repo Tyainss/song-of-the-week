@@ -2,9 +2,9 @@
 
 Predicting my **weekly favourite song** from historical listening data, with a production-ready **Logistic Regression** model served via **FastAPI**, containerized with **Docker**, and deployed to **Render**.
 
-Every Saturday since 2021-01-02, I pick a single **"Song of the Week"** that best represents my week and save it to a Spotify playlist. This project asks a simple question:
+Every Saturday since `2021-01-02`, I pick a single **"Favourite Song of the Week"** that best represents my week and save it to a Spotify playlist. This project asks a simple question:
 
-> Can a model learn my listening patterns well enough to guess which track I'll choose?
+> Can a model learn my listening patterns well enough to guess which favourite song I'll choose?
 
 ---
 
@@ -14,9 +14,14 @@ Every Saturday since 2021-01-02, I pick a single **"Song of the Week"** that bes
 - 🌐 **Live API**: https://song-of-the-week.onrender.com/docs 
 - 🧠 **Models**:
   - Logistic Regression - **final production model**
-  - XGBoost - explored but not selected (better Hit@3, worse Hit@1)
+  - XGBoost - explored but not selected
 - 🧩 **Stack**: Python, scikit-learn, FastAPI, uv, Docker, Render
-- 🗂 **Repo layout**: clear separation between extraction (`extraction/`), feature pipeline (`core/`), notebooks (`notebooks/`), and serving (`core/scripts/predict.py`).
+- 🗂 **Repo layout (key parts)**:
+  - `extraction/` – pulls data from Last.fm / Spotify / MusicBrainz and writes curated CSVs.
+  - `core/` – cleaning, feature engineering, training (`core/scripts/train.py`) and API (`core/scripts/predict.py`).
+  - `notebooks/` – EDA and modeling experiments (`00_eda.ipynb`, `01_model_training.ipynb`).
+  - `docs/` – screenshots and figures used in this README.
+
 
 ---
 
@@ -50,7 +55,7 @@ Then go to `http://localhost:9696/docs` and call `POST /predict` with sample dat
 
 ## 1. Problem & use case
 
-Since 2021-01-02, every Saturday I look back at what I've been listening to during the week and pick **my favourite track** of the week. I add it in a Spotify playlist (a sort of "time capsule" capturing my music taste throughout the years), which you can find here:
+Since `2021-01-02`, every Saturday I look back at what I've been listening to during the week and pick **my favourite song** of the week. I add it in a Spotify playlist (a sort of "time capsule" capturing my music taste throughout the years), which you can find here:
 
 > [https://open.spotify.com/playlist/1fEZEREbZ12WvjOsdBoHxi?si=c2948ea89ae5487a](https://open.spotify.com/playlist/1fEZEREbZ12WvjOsdBoHxi?si=c2948ea89ae5487a)
 
@@ -308,11 +313,11 @@ These features describe how **prominent** a track is in that week. Tracks played
 
 *Weekly plays - favourite vs other tracks in the same week.*  
 
-- **Favorites are rarely “low-play” tracks.** The left chart shows that non-favorites often have only 1-2 plays in a week, while favorites almost always sit above that range.  
+- **Favorites are rarely "low-play" tracks.** The left chart shows that non-favorites often have only 1-2 plays in a week, while favorites almost always sit above that range.  
 
 - When compared to the **maximum non-favorite** track each week (right chart), favorites live in a similar play range - roughly 7 to 12 plays. In many weeks the favorite is simply among the **most played tracks of the week**, but not always the single highest.
 
-Together, this supports using `scrobbles_week`, `unique_days_week` and `within_week_rank_by_scrobbles` as core signals of “weekly intensity” in the model.
+Together, this supports using `scrobbles_week`, `unique_days_week` and `within_week_rank_by_scrobbles` as core signals of "weekly intensity" in the model.
 
 ### 4.3 End-of-week bias
 
@@ -391,7 +396,7 @@ A few patterns:
 * Strong positive drivers:
   * **`scrobbles_week`** and **`unique_days_week`** - tracks played more, and on more days, are much more likely to become favourites.
   * **`prior_scrobbles_all_time`** and **`scrobbles_prev_1w`** - both long-term and recent history matter; favourites are often tracks I’ve been listening to for a while.
-  * **`scrobbles_last_fri_sat`** / **`scrobbles_saturday`** - heavy end-of-week listening boosts the odds.
+  * **`scrobbles_last_fri_sat`** / **`scrobbles_saturday`** - heavy end-of-week listening boosts the odds (as seen in End-of-week bias).
 * Negative drivers:
   * **`within_week_rank_by_scrobbles`** - higher rank number (i.e. *lower* within-week position) sharply reduces the chance of being favourite (better ranked tracks are more likely to be favourite).
   * **`last_scrobble_gap_days`** - tracks I stopped listening to earlier in the week are less likely to be picked on Saturday.
@@ -671,7 +676,7 @@ Render setup:
 * Health check path: `/`.
 * Use a free instance type.
 
-Render's free tier can spin down after inactivity, so the first request after a long idle period might be slow or briefly return a 502 while waking up. After the container is warm, responses are fast and stable.
+Render's free tier can spin down after inactivity, so the first request after a long idle period might be slow or briefly return a 502 while waking up.
 
 ### 10.1 Testing the live endpoint
 
@@ -724,28 +729,41 @@ These screenshots show the fully working deployment on Render.
 
 ## 11. EDA highlights
 
-Full EDA is captured in `notebooks/00_eda.ipynb`. Highlights include:
+Full EDA is captured in `notebooks/00_eda.ipynb`. A few key findings:
 
-* Distributions and ranges of key features.
-* Missing values patterns (especially `spotify_release_date` and `genre_bucket`).
-* Target rate (`is_week_favorite`) over time and across features.
+- **Extreme class imbalance over time**
 
-![Weekly favorite rate over time](docs/figures/weekly_favorite_rate.png)
+  ![Weekly favorite rate over time](docs/figures/weekly_favorite_rate.png)
 
-*Weekly favourite rate over time.*  
-Each point is one week. The favourite rate stays around **0.2-0.4%** of all track/week pairs, with a few spikes. This extreme imbalance (base rate ≈ **0.3%**) is why PR-AUC and week-level ranking metrics (Hit@1 / Hit@3) are more informative than simple accuracy.
+  *Weekly favourite rate over time.*  
+  Each point is one week. The favourite rate stays around **0.2-0.4%** of all track/week pairs, with a few spikes. This extreme imbalance (base rate ≈ **0.3%**) is why PR-AUC and week-level ranking metrics (Hit@1 / Hit@3) are more informative than simple accuracy.
 
-* Feature intuition:
+- **Favourites are rarely low-play tracks, and tend to cluster late in the week**
 
-  * Genre-specific lift.
-  * Effect of historical scrobbles and momentum.
-  * Impact of `first_seen_week` and release recency.
+  Using weekly plays and weekday patterns:
 
-These analyses informed:
+  - Favourites almost never live in the "1-2 plays" range; non-favourites dominate there.
+  - When compared to the **max non-favourite** track each week, favourites usually sit in the **same 7-12 plays band** - often among the most played tracks, but not always the single top track.
+  - Plays per weekday show a clear skew for favourites towards **Friday and Saturday**, while non-favourites are more evenly spread across the week.
 
-* Cleaning rules (e.g., handling missing release dates).
-* Dropping highly correlated history features.
-* Choosing a compact, interpretable feature set for Logistic Regression.
+  These patterns motivated certain engineered features:
+  - Weekly intensity features like `scrobbles_week`, `unique_days_week`, `within_week_rank_by_scrobbles`.
+  - End-of-week recency features like `scrobbles_last_fri_sat`, `scrobbles_saturday`, and `last_scrobble_gap_days`.
+
+- **History, momentum and genre shape the final model**
+
+  From the Logistic Regression coefficients:
+
+  - Strong positive drivers: weekly intensity (`scrobbles_week`, `unique_days_week`), recent history (`scrobbles_prev_1w`), and long-term history (`prior_scrobbles_all_time`), plus end-of-week activity.
+  - Strong negative drivers: being lower in the weekly rank (`within_week_rank_by_scrobbles`), and having a large gap since the last scrobble (`last_scrobble_gap_days`).
+  - Some genres (like `genre__hip_hop_rap`) appear slightly **under-represented as favourites** relative to how often they are played overall.
+
+These insights fed directly into:
+
+- Cleaning rules (e.g. how to handle missing `spotify_release_date` and genre).
+- Dropping highly correlated history features in favour of `prior_scrobbles_all_time`.
+- The final feature set and the decision to focus on week-level ranking metrics for model comparison.
+
 
 ---
 
