@@ -304,6 +304,16 @@ ID-like columns (keys, MBIDs, Spotify IDs) are kept for reference but **excluded
 
 These features describe how **prominent** a track is in that week. Tracks played on more days and with higher weekly counts are more likely to stick.
 
+![Weekly plays: favourite vs average / max in week](docs/figures/weekly_plays_favorite_vs_other.png)
+
+*Weekly plays - favourite vs other tracks in the same week.*  
+
+- **Favorites are rarely “low-play” tracks.** The left chart shows that non-favorites often have only 1-2 plays in a week, while favorites almost always sit above that range.  
+
+- When compared to the **maximum non-favorite** track each week (right chart), favorites live in a similar play range - roughly 7 to 12 plays. In many weeks the favorite is simply among the **most played tracks of the week**, but not always the single highest.
+
+Together, this supports using `scrobbles_week`, `unique_days_week` and `within_week_rank_by_scrobbles` as core signals of “weekly intensity” in the model.
+
 ### 4.3 End-of-week bias
 
 Because I pick the favourite on Saturday, music I listen to at the end of the week has a recency advantage:
