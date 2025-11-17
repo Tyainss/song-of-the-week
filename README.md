@@ -35,7 +35,7 @@ If you just want to see it working:
   ```bash
   uv sync
   uv run uvicorn core.scripts.predict:app --host 0.0.0.0 --port 9696
-  ````
+  ```
 
 * 📦 **Run with Docker**:
 
@@ -165,7 +165,15 @@ Data is processed through the following stages:
      * Dropping leakage / highly correlated features.
      * Preparing features for modeling.
 
-> If you only care about training / retraining the model, you can start from the processed tables in `core/data/processed/` and `core/data/features/` and skip the `extraction/` step entirely.
+### 2.4 Final modeling dataset
+
+The final dataset used for training and evaluation is:
+
+- `core/data/features/weekly_for_model.csv`
+
+This file is committed to the repository.  
+If you don’t want to run the full extraction/cleaning pipeline, you can use this CSV directly with `core/scripts/train.py`.
+
 
 ---
 
@@ -220,16 +228,19 @@ Training flow for Logistic Regression:
 
 The dataset is **extremely imbalanced**: the positive rate (favourite) is around **0.3%** of all `(track, week)` pairs. Because of that, the project uses metrics that are informative under heavy imbalance:
 
-* **ROC-AUC (~0.98)**:
+* **ROC-AUC (~0.99)**:
 
   * Measures overall ability to separate positives from negatives across all thresholds.
+  * Because positives are so rare, it’s common to see relatively high ROC-AUC values even when the model’s ability to actually *find* positives is limited. That’s why PR-AUC and the week-level Hit@K metrics are more informative here.
+
 * **PR-AUC (~0.26)**:
 
   * Measures how well the model finds favourites among many non-favourites.
+  * For a random model, PR-AUC would be around the base rate (~0.003), so 0.26 is ~80x better than random.
   * More informative than ROC-AUC when positives are rare.
 * **Precision, Recall, F1 at the tuned threshold**:
 
-  * Precision ≈ **0.32** - when the model says "this is a favourite", how often it's right.
+  * Precision ≈ **0.30** - when the model says "this is a favourite", how often it's right.
   * Recall ≈ **0.49** - how many actual favourites are found.
   * F1 ≈ **0.38** - balance between precision and recall.
 
@@ -246,18 +257,11 @@ On top of that, **week-level ranking metrics** capture the real use case:
 
 Summary of model comparison:
 
-* **Logistic Regression (final)**:
 
-  * ROC-AUC ≈ 0.98
-  * PR-AUC ≈ 0.26
-  * Hit@1 ≈ 0.39
-  * Hit@3 ≈ 0.67
-
-* **XGBoost (best variant, approximate)**:
-
-  * Slightly higher PR-AUC.
-  * Higher Hit@3.
-  * **Lower Hit@1**.
+| Model              | ROC-AUC | PR-AUC | Hit@1 | Hit@3 | F1 |
+|--------------------|:-------:|:------:|:-----:|:-----:|:-----:|
+| Logistic Regression|  ~0.985  |  ~0.257 | ~0.367 | ~0.673 | 0.375
+| XGBoost     |  ~0.970 | ~0.259 | ~0.327 | ~0.653 | 0.275
 
 Interpretation:
 
@@ -308,7 +312,13 @@ Because I pick the favourite on Saturday, music I listen to at the end of the we
 * `scrobbles_saturday` - scrobbles on Saturday only.
 * `last_scrobble_gap_days` - days between the last scrobble and Saturday 23:59:59.
 
-Tracks that I binge on Friday/Saturday, or that I hear very close to Saturday night, tend to be more top-of-mind.
+Tracks that I binge on Friday/Saturday, or that I hear very close to Saturday night, tend to be more top-of-mind, as seen below.
+
+![Plays per weekday (favorite vs non-favorite)](docs/figures/plays_per_weekday.png)
+
+*Plays per weekday - favourite vs non-favourite tracks.*  
+Non-favourites are more evenly spread across the week, while favourites are clearly skewed towards **Friday and Saturday**. This pattern motivates features like `scrobbles_last_fri_sat`, `scrobbles_saturday`, and `last_scrobble_gap_days` to capture the end-of-week recency effect.
+
 
 ### 4.4 Novelty & history
 
@@ -356,6 +366,30 @@ Genres are represented by **one-hot encoded** features:
 * The same vectorizer is applied to validation, test, and prediction requests.
 
 This allows the model to learn that some genres are more "favourite-prone" in my listening habits than others.
+
+### 4.9 Feature impact in the final model
+
+To understand which behaviours matter most for the final Logistic Regression model, I looked at the **top 10 coefficients** after standardizing the features:
+
+![Top 10 Logistic Regression coefficients](docs/figures/top10_logreg_coeffs.png)
+
+*Top 10 Logistic Regression coefficients.*  
+Positive coefficients push the probability of being a favourite **up**, negative coefficients push it **down**.
+
+A few patterns:
+
+* Strong positive drivers:
+  * **`scrobbles_week`** and **`unique_days_week`** - tracks played more, and on more days, are much more likely to become favourites.
+  * **`prior_scrobbles_all_time`** and **`scrobbles_prev_1w`** - both long-term and recent history matter; favourites are often tracks I’ve been listening to for a while.
+  * **`scrobbles_last_fri_sat`** / **`scrobbles_saturday`** - heavy end-of-week listening boosts the odds.
+* Negative drivers:
+  * **`within_week_rank_by_scrobbles`** - higher rank number (i.e. *lower* within-week position) sharply reduces the chance of being favourite (better ranked tracks are more likely to be favourite).
+  * **`last_scrobble_gap_days`** - tracks I stopped listening to earlier in the week are less likely to be picked on Saturday.
+  * **`genre__hip_hop_rap`** - Tracks of Hip Hop and Rap genre appear to be less likely of being considered favorite, while being the most listened to genre.
+
+
+Overall, the model learns a story that matches intuition: favourites tend to be **heavily played, spread across the week, with strong activity near Friday/Saturday**, and usually already part of my listening history.
+
 
 ---
 
@@ -675,6 +709,7 @@ Under `docs/screenshots/` you will find:
 
 These screenshots show the fully working deployment on Render.
 
+![Render web service overview](docs/screenshots/00_render_sotw_ui.png)
 ---
 
 ## 11. EDA highlights
@@ -684,6 +719,12 @@ Full EDA is captured in `notebooks/00_eda.ipynb`. Highlights include:
 * Distributions and ranges of key features.
 * Missing values patterns (especially `spotify_release_date` and `genre_bucket`).
 * Target rate (`is_week_favorite`) over time and across features.
+
+![Weekly favorite rate over time](docs/figures/weekly_favorite_rate.png)
+
+*Weekly favourite rate over time.*  
+Each point is one week. The favourite rate stays around **0.2-0.4%** of all track/week pairs, with a few spikes. This extreme imbalance (base rate ≈ **0.3%**) is why PR-AUC and week-level ranking metrics (Hit@1 / Hit@3) are more informative than simple accuracy.
+
 * Feature intuition:
 
   * Genre-specific lift.
