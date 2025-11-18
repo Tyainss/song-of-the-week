@@ -251,9 +251,9 @@ The dataset is **extremely imbalanced**: the positive rate (favourite) is around
 
 On top of that, **week-level ranking metrics** capture the real use case:
 
-* **Hit@1 ≈ 0.39**:
+* **Hit@1 ≈ 0.37**:
 
-  * In ~39% of weeks, the true favourite is ranked #1.
+  * In ~37% of weeks, the true favourite is ranked #1.
 * **Hit@3 ≈ 0.67**:
 
   * In ~67% of weeks, the true favourite is in the top 3.
