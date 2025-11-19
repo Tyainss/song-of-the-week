@@ -260,18 +260,25 @@ On top of that, **week-level ranking metrics** capture the real use case:
 
 ### 3.4 Logistic Regression vs XGBoost
 
-Summary of model comparison:
+After tuning both models on the **training / validation** splits, I kept:
 
+- `logreg_full_final` as the final Logistic Regression model.
+- `xgb_simple_final` as the main XGBoost baseline (a simpler-capacity configuration).
 
-| Model              | ROC-AUC | PR-AUC | Hit@1 | Hit@3 | F1 |
-|--------------------|:-------:|:------:|:-----:|:-----:|:-----:|
-| Logistic Regression|  ~0.985  |  ~0.257 | ~0.367 | ~0.673 | 0.375
-| XGBoost     |  ~0.970 | ~0.259 | ~0.327 | ~0.653 | 0.275
+The table below shows their performance on the **held-out test set**:
+
+| Model               | ROC-AUC | PR-AUC | Hit@1 | Hit@3 | F1    |
+|---------------------|:-------:|:------:|:-----:|:-----:|:-----:|
+| Logistic Regression |  ~0.985 | ~0.257 | ~0.367| ~0.673| 0.375 |
+| XGBoost             |  ~0.970 | ~0.259 | ~0.327| ~0.653| 0.275 |
 
 Interpretation:
 
-* XGBoost is better as a **top-3 recommender** (higher Hit@3).
-* Logistic Regression is better when you must **pick a single winner** (higher Hit@1).
+- XGBoost is better as a **top-3 recommender** (higher Hit@3).
+- Logistic Regression is better when you must **pick a single winner** (higher Hit@1).
+
+Model selection (Logistic Regression vs XGBoost) is based primarily on **validation** PR-AUC and Hit@1.  
+The test numbers above are used as a final **sanity check** that the ranking behaviour generalizes to unseen weeks.
 
 Since the decided Product approach was "choose one weekly favourite song", **Hit@1** is the primary success metric. That's why Logistic Regression was selected as the production model, even though XGBoost edges it on some aggregate metrics.
 
