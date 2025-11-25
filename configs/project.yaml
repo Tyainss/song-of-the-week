@@ -16,6 +16,7 @@ paths:
   core_features: "core/data/features"
   core_models: "core/data/models"
   core_metrics: "core/data/metrics"
+  weekly_dataset: core/data/features/weekly_for_model.csv
 
 # Week definition for labels/aggregation
 week_anchor: "saturday"
