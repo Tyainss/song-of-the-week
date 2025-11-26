@@ -1,11 +1,12 @@
-import os
+
 from typing import Any, Dict, List, Optional
 
 import requests
+import streamlit as st
 
 
 DEFAULT_TIMEOUT = 10.0
-BASE_URL = os.getenv("SOTW_API_BASE_URL", "http://localhost:9696")
+BASE_URL = st.secrets.get("api_base_url", "http://localhost:9696")
 
 
 class APIClientError(RuntimeError):
