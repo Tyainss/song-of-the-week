@@ -904,3 +904,55 @@ def spotify_search_track(
         ) from exc
 
     return SpotifySearchResponse(items=tracks)
+
+
+@app.get(
+    "/spotify/candidate_from_url",
+    response_model=Candidate,
+    summary="Create a Candidate template from a Spotify URL",
+)
+def spotify_candidate_from_url(url: str) -> Candidate:
+    """
+    Resolve a Spotify URL to a Candidate template.
+    """
+    try:
+        track_id = _extract_spotify_track_id(url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        payload = _spotify_api_get(f"/tracks/{track_id}")
+        track = _normalize_spotify_track(payload)
+        candidate = spotify_track_to_candidate_template(track)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch/convert track from Spotify: {exc}",
+        ) from exc
+
+    return candidate
+
+
+@app.get(
+    "/spotify/candidate_from_id",
+    response_model=Candidate,
+    summary="Create a Candidate template from a Spotify Track ID",
+)
+def spotify_candidate_from_id(track_id: str) -> Candidate:
+    """
+    Resolve a Spotify Track ID to a Candidate template.
+    """
+    if not track_id:
+        raise HTTPException(status_code=400, detail="track_id is required")
+
+    try:
+        payload = _spotify_api_get(f"/tracks/{track_id}")
+        track = _normalize_spotify_track(payload)
+        candidate = spotify_track_to_candidate_template(track)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch/convert track from Spotify: {exc}",
+        ) from exc
+
+    return candidate
