@@ -76,6 +76,44 @@ def _duplicate_candidate(candidate: Dict[str, Any]) -> Dict[str, Any]:
         new_candidate["track_name"] = f"{new_candidate['track_name']} (copy)"
     return new_candidate
 
+def _build_manual_candidate_template() -> Dict[str, Any]:
+    """
+    Create a blank/manual candidate with all required model fields.
+
+    The user can then edit this via the Candidate details form.
+    """
+    return {
+        "candidate_id": str(uuid4()),
+        "source": "manual",
+        "track_name": "",
+        "artist_name": "",
+        "spotify_track_id": None,
+        "week_start": None,
+        # Model features (pre-DV/OHE)
+        "spotify_popularity": 0.0,
+        "track_duration": 0.0,
+        "scrobbles_week": 0.0,
+        "unique_days_week": 0.0,
+        "scrobbles_last_fri_sat": 0.0,
+        "scrobbles_saturday": 0.0,
+        "last_scrobble_gap_days": 0.0,
+        "within_week_rank_by_scrobbles": 1.0,
+        "scrobbles_prev_1w": 0.0,
+        "scrobbles_prev_4w": 0.0,
+        "week_over_week_change": 0.0,
+        "momentum_4w_ratio": 0.0,
+        "prior_scrobbles_all_time": 0.0,
+        "first_seen_week": 0.0,
+        "days_since_release": 0.0,
+        "released_within_28d": 0.0,
+        "genre_bucket": "unknown",
+        # Optional prediction fields
+        "probability": None,
+        "rank": None,
+        "prediction": None,
+        "above_threshold": None,
+    }
+
 def _clear_candidates() -> None:
     """
     Remove all candidates and reset the current selection.
@@ -185,8 +223,158 @@ def _render_candidate_details() -> None:
         st.info("Select a candidate to see details.")
         return
 
-    # For now, just show the raw dict. We can later replace this with a proper form.
-    st.json(cand)
+    # Editable form for the selected candidate
+    form_key = f"candidate_form_{cand.get('candidate_id', 'unknown')}"
+    with st.form(key=form_key):
+        st.markdown("**Metadata**")
+        track_name = st.text_input(
+            "Track name",
+            value=cand.get("track_name") or "",
+        )
+        artist_name = st.text_input(
+            "Artist name",
+            value=cand.get("artist_name") or "",
+        )
+
+        st.markdown("**Model features**")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            spotify_popularity = st.number_input(
+                "Spotify popularity",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(cand.get("spotify_popularity") or 0.0),
+                step=1.0,
+            )
+            track_duration = st.number_input(
+                "Track duration (seconds)",
+                min_value=0.0,
+                max_value=2000.0,
+                value=float(cand.get("track_duration") or 0.0),
+                step=1.0,
+            )
+            scrobbles_week = st.number_input(
+                "Scrobbles this week",
+                min_value=0.0,
+                value=float(cand.get("scrobbles_week") or 0.0),
+                step=1.0,
+            )
+            unique_days_week = st.number_input(
+                "Unique days this week",
+                min_value=0.0,
+                value=float(cand.get("unique_days_week") or 0.0),
+                step=1.0,
+            )
+            scrobbles_last_fri_sat = st.number_input(
+                "Scrobbles last Fri+Sat",
+                min_value=0.0,
+                value=float(cand.get("scrobbles_last_fri_sat") or 0.0),
+                step=1.0,
+            )
+            scrobbles_saturday = st.number_input(
+                "Scrobbles on Saturday",
+                min_value=0.0,
+                value=float(cand.get("scrobbles_saturday") or 0.0),
+                step=1.0,
+            )
+
+        with col2:
+            last_scrobble_gap_days = st.number_input(
+                "Gap since last scrobble (days)",
+                min_value=0.0,
+                value=float(cand.get("last_scrobble_gap_days") or 0.0),
+                step=0.5,
+            )
+            within_week_rank_by_scrobbles = st.number_input(
+                "Within-week rank by scrobbles",
+                min_value=1.0,
+                value=float(cand.get("within_week_rank_by_scrobbles") or 1.0),
+                step=1.0,
+            )
+            scrobbles_prev_1w = st.number_input(
+                "Scrobbles previous 1 week",
+                min_value=0.0,
+                value=float(cand.get("scrobbles_prev_1w") or 0.0),
+                step=1.0,
+            )
+            scrobbles_prev_4w = st.number_input(
+                "Scrobbles previous 4 weeks",
+                min_value=0.0,
+                value=float(cand.get("scrobbles_prev_4w") or 0.0),
+                step=1.0,
+            )
+            week_over_week_change = st.number_input(
+                "Week-over-week change",
+                value=float(cand.get("week_over_week_change") or 0.0),
+                step=1.0,
+            )
+            momentum_4w_ratio = st.number_input(
+                "Momentum (4w ratio)",
+                min_value=0.0,
+                value=float(cand.get("momentum_4w_ratio") or 0.0),
+                step=0.1,
+            )
+
+        with col3:
+            prior_scrobbles_all_time = st.number_input(
+                "Prior scrobbles (all time)",
+                min_value=0.0,
+                value=float(cand.get("prior_scrobbles_all_time") or 0.0),
+                step=1.0,
+            )
+            first_seen_week = st.number_input(
+                "First seen week (index)",
+                min_value=0.0,
+                value=float(cand.get("first_seen_week") or 0.0),
+                step=1.0,
+            )
+            days_since_release = st.number_input(
+                "Days since release",
+                min_value=0.0,
+                value=float(cand.get("days_since_release") or 0.0),
+                step=1.0,
+            )
+            released_within_28d = st.number_input(
+                "Released within 28 days (0/1)",
+                min_value=0.0,
+                max_value=1.0,
+                value=float(cand.get("released_within_28d") or 0.0),
+                step=1.0,
+            )
+            genre_bucket = st.text_input(
+                "Genre bucket",
+                value=cand.get("genre_bucket") or "unknown",
+            )
+
+        submitted = st.form_submit_button("Save candidate")
+
+        if submitted:
+            # Mutate the selected candidate in session_state
+            cand.update(
+                {
+                    "track_name": track_name or "",
+                    "artist_name": artist_name or "",
+                    "spotify_popularity": spotify_popularity,
+                    "track_duration": track_duration,
+                    "scrobbles_week": scrobbles_week,
+                    "unique_days_week": unique_days_week,
+                    "scrobbles_last_fri_sat": scrobbles_last_fri_sat,
+                    "scrobbles_saturday": scrobbles_saturday,
+                    "last_scrobble_gap_days": last_scrobble_gap_days,
+                    "within_week_rank_by_scrobbles": within_week_rank_by_scrobbles,
+                    "scrobbles_prev_1w": scrobbles_prev_1w,
+                    "scrobbles_prev_4w": scrobbles_prev_4w,
+                    "week_over_week_change": week_over_week_change,
+                    "momentum_4w_ratio": momentum_4w_ratio,
+                    "prior_scrobbles_all_time": prior_scrobbles_all_time,
+                    "first_seen_week": first_seen_week,
+                    "days_since_release": days_since_release,
+                    "released_within_28d": released_within_28d,
+                    "genre_bucket": genre_bucket or "unknown",
+                }
+            )
+            st.success("Candidate updated. Re-run predictions to see the impact.")
 
 
 def _handle_add_from_spotify_url() -> None:
@@ -330,6 +518,45 @@ def _handle_predict(mode: str) -> None:
         st.success("Predictions updated. Check the candidates table for ranks and probabilities.")
 
 
+def _handle_add_favorite_example() -> None:
+    st.subheader("Add candidate from favourite songs")
+
+    if st.button("Add favourite candidate"):
+        if not _can_call("examples", cooldown_seconds=1.0):
+            st.warning("Please wait a moment before requesting more examples.")
+            return
+
+        try:
+            resp = api_client.get_favourite_examples(count=1)
+        except api_client.APIClientError as exc:
+            st.error(f"Examples API error: {exc}")
+            return
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Unexpected error while fetching favourite examples: {exc}")
+            return
+
+        items = resp.get("candidates", [])
+        if not items:
+            st.warning("No favourite examples returned by the backend.")
+            return
+
+        example = items[0]
+        candidate = example.get("candidate") or {}
+        _add_candidate(candidate)
+        st.success("Favourite candidate added from dataset.")
+
+
+def _handle_add_manual_candidate() -> None:
+    st.subheader("Add manual candidate")
+
+    if st.button("Add blank candidate"):
+        candidate = _build_manual_candidate_template()
+        _add_candidate(candidate)
+        st.success(
+            "Manual candidate added. Use the details panel on the left to edit it."
+        )
+
+
 def _merge_predictions_into_candidates_single(prediction_response: Dict[str, Any]) -> None:
     results = prediction_response.get("results", [])
     if not results:
@@ -393,6 +620,8 @@ def main() -> None:
         _handle_add_random_example()
         st.divider()
         _handle_add_favorite_example()
+        st.divider()
+        _handle_add_manual_candidate()
         st.divider()
         _handle_duplicate_candidate()
         st.divider()
