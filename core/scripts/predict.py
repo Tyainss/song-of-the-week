@@ -785,12 +785,14 @@ def _extract_spotify_track_id(raw_url: str) -> str:
     """
     Extract Spotify track ID from a URL or URI.
 
-    Supported formats:
+    Supported formats (examples):
       - https://open.spotify.com/track/{id}
+      - https://open.spotify.com/intl-pt/track/{id}
       - spotify:track:{id}
     """
     raw_url = raw_url.strip()
 
+    # URI form: spotify:track:{id}
     if raw_url.startswith("spotify:track:"):
         return raw_url.split("spotify:track:", 1)[1]
 
@@ -798,11 +800,20 @@ def _extract_spotify_track_id(raw_url: str) -> str:
     if "open.spotify.com" not in parsed.netloc:
         raise ValueError("URL does not look like a Spotify track URL")
 
+    # Split path into segments and look for "track" anywhere
     parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) < 2 or parts[0] != "track":
-        raise ValueError("URL path does not look like a Spotify track URL")
 
-    return parts[1]
+    try:
+        track_index = parts.index("track")
+    except ValueError as exc:
+        # No "track" segment found
+        raise ValueError("URL path does not look like a Spotify track URL") from exc
+
+    if track_index == len(parts) - 1:
+        # "track" present but no ID after it
+        raise ValueError("Spotify track URL is missing the track ID")
+
+    return parts[track_index + 1]
 
 
 def _normalize_spotify_track(payload: Dict[str, Any]) -> SpotifyTrack:
