@@ -34,7 +34,7 @@ def _ensure_backend_warmup() -> None:
             st.session_state["backend_warmed_up"] = True
         except api_client.APIClientError as exc:
             st.error(f"Failed to reach backend: {exc}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             st.error(f"Unexpected error while warming up backend: {exc}")
 
 
@@ -76,6 +76,12 @@ def _duplicate_candidate(candidate: Dict[str, Any]) -> Dict[str, Any]:
         new_candidate["track_name"] = f"{new_candidate['track_name']} (copy)"
     return new_candidate
 
+def _clear_candidates() -> None:
+    """
+    Remove all candidates and reset the current selection.
+    """
+    st.session_state["candidates"] = []
+    st.session_state["selected_candidate_id"] = None
 
 def _merge_predictions_into_candidates(prediction_response: Dict[str, Any]) -> None:
     # Results indexed by candidate_id if available, otherwise by index
@@ -146,13 +152,13 @@ def _render_candidates_table() -> None:
         df = df.sort_values(["rank", "probability"], ascending=[True, False])
 
     st.subheader("Candidates")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
 
     # Selection widget
     candidate_map = {
         cand.get("candidate_id"): (
             f"{cand.get('track_name') or 'Unknown track'}"
-            f" – {cand.get('artist_name') or 'Unknown artist'}"
+            f" - {cand.get('artist_name') or 'Unknown artist'}"
         )
         for cand in candidates
     }
@@ -239,6 +245,33 @@ def _handle_add_random_example() -> None:
         candidate = example.get("candidate") or {}
         _add_candidate(candidate)
         st.success("Random candidate added from dataset.")
+
+def _handle_add_favorite_example() -> None:
+    st.subheader("Add candidate from favourite songs")
+
+    if st.button("Add favourite candidate"):
+        if not _can_call("examples", cooldown_seconds=1.0):
+            st.warning("Please wait a moment before requesting more examples.")
+            return
+
+        try:
+            resp = api_client.get_favorite_examples(count=1)
+        except api_client.APIClientError as exc:
+            st.error(f"Examples API error: {exc}")
+            return
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Unexpected error while fetching favourite examples: {exc}")
+            return
+
+        items = resp.get("candidates", [])
+        if not items:
+            st.warning("No favourite examples returned by the backend.")
+            return
+
+        example = items[0]
+        candidate = example.get("candidate") or {}
+        _add_candidate(candidate)
+        st.success("Favourite candidate added from dataset.")
 
 
 def _handle_duplicate_candidate() -> None:
@@ -342,8 +375,7 @@ def _render_single_mode_summary(prediction_response: Dict[str, Any]) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="SOTW Playground", page_icon="🎵", layout="wide")
-    st.title("SOTW Playground – Candidate Builder")
+    st.title("SOTW Playground - Candidate Builder")
 
     _init_session_state()
     _ensure_backend_warmup()
@@ -362,6 +394,8 @@ def main() -> None:
         st.divider()
         _handle_add_random_example()
         st.divider()
+        _handle_add_favorite_example()
+        st.divider()
         _handle_duplicate_candidate()
         st.divider()
 
@@ -374,6 +408,13 @@ def main() -> None:
             ),
         ):
             _handle_predict(mode)
+
+        # Clear all candidates in the current session
+        st.button(
+            "Clear candidates",
+            help="Remove all candidates and reset selection.",
+            on_click=_clear_candidates,
+        )
 
 
 if __name__ == "__main__":
