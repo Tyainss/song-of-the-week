@@ -384,10 +384,8 @@ def main() -> None:
 
     col_left, col_right = st.columns([2, 1])
 
-    with col_left:
-        _render_candidates_table()
-        _render_candidate_details()
-
+    # IMPORTANT: handle actions first (right column),
+    # then render the table (left column) so new candidates show up immediately.
     with col_right:
         st.header("Add candidates")
         _handle_add_from_spotify_url()
@@ -415,6 +413,10 @@ def main() -> None:
             help="Remove all candidates and reset selection.",
             on_click=_clear_candidates,
         )
+
+    with col_left:
+        _render_candidates_table()
+        _render_candidate_details()
 
 
 if __name__ == "__main__":
