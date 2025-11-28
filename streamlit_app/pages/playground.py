@@ -8,6 +8,21 @@ import streamlit as st
 
 from utils import api_client
 
+GENRE_BUCKET_OPTIONS: List[str] = [
+    "hip_hop_rap",
+    "rnb_soul",
+    "electronic_dance",
+    "jazz",
+    "classical_art",
+    "folk_country_americana",
+    "metal_hard",
+    "rock",
+    "pop",
+    "latin",
+    "world_regional",
+    "experimental_avant",
+    "unknown",
+]
 
 # ------------- Session state helpers ------------- #
 
@@ -242,41 +257,41 @@ def _render_candidate_details() -> None:
         with col1:
             spotify_popularity = st.number_input(
                 "Spotify popularity",
-                min_value=0.0,
-                max_value=100.0,
-                value=float(cand.get("spotify_popularity") or 0.0),
-                step=1.0,
+                min_value=0,
+                max_value=100,
+                value=int(cand.get("spotify_popularity") or 0),
+                step=1,
             )
             track_duration = st.number_input(
                 "Track duration (seconds)",
-                min_value=0.0,
-                max_value=2000.0,
-                value=float(cand.get("track_duration") or 0.0),
-                step=1.0,
+                min_value=0,
+                max_value=2000,
+                value=int(cand.get("track_duration") or 0.0),
+                step=1,
             )
             scrobbles_week = st.number_input(
                 "Scrobbles this week",
-                min_value=0.0,
-                value=float(cand.get("scrobbles_week") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("scrobbles_week") or 0),
+                step=1,
             )
             unique_days_week = st.number_input(
                 "Unique days this week",
-                min_value=0.0,
-                value=float(cand.get("unique_days_week") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("unique_days_week") or 0),
+                step=1,
             )
             scrobbles_last_fri_sat = st.number_input(
                 "Scrobbles last Fri+Sat",
-                min_value=0.0,
-                value=float(cand.get("scrobbles_last_fri_sat") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("scrobbles_last_fri_sat") or 0),
+                step=1,
             )
             scrobbles_saturday = st.number_input(
                 "Scrobbles on Saturday",
-                min_value=0.0,
-                value=float(cand.get("scrobbles_saturday") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("scrobbles_saturday") or 0),
+                step=1,
             )
 
         with col2:
@@ -288,21 +303,21 @@ def _render_candidate_details() -> None:
             )
             within_week_rank_by_scrobbles = st.number_input(
                 "Within-week rank by scrobbles",
-                min_value=1.0,
-                value=float(cand.get("within_week_rank_by_scrobbles") or 1.0),
-                step=1.0,
+                min_value=1,
+                value=int(cand.get("within_week_rank_by_scrobbles") or 1),
+                step=1,
             )
             scrobbles_prev_1w = st.number_input(
                 "Scrobbles previous 1 week",
-                min_value=0.0,
-                value=float(cand.get("scrobbles_prev_1w") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("scrobbles_prev_1w") or 0),
+                step=1,
             )
             scrobbles_prev_4w = st.number_input(
                 "Scrobbles previous 4 weeks",
-                min_value=0.0,
-                value=float(cand.get("scrobbles_prev_4w") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("scrobbles_prev_4w") or 0),
+                step=1,
             )
             week_over_week_change = st.number_input(
                 "Week-over-week change",
@@ -319,32 +334,41 @@ def _render_candidate_details() -> None:
         with col3:
             prior_scrobbles_all_time = st.number_input(
                 "Prior scrobbles (all time)",
-                min_value=0.0,
-                value=float(cand.get("prior_scrobbles_all_time") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("prior_scrobbles_all_time") or 0),
+                step=1,
             )
             first_seen_week = st.number_input(
                 "First seen week (index)",
-                min_value=0.0,
-                value=float(cand.get("first_seen_week") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("first_seen_week") or 0),
+                step=1,
             )
             days_since_release = st.number_input(
                 "Days since release",
-                min_value=0.0,
-                value=float(cand.get("days_since_release") or 0.0),
-                step=1.0,
+                min_value=0,
+                value=int(cand.get("days_since_release") or 0),
+                step=1,
             )
             released_within_28d = st.number_input(
                 "Released within 28 days (0/1)",
-                min_value=0.0,
-                max_value=1.0,
-                value=float(cand.get("released_within_28d") or 0.0),
-                step=1.0,
+                min_value=0,
+                max_value=1,
+                value=int(cand.get("released_within_28d") or 0),
+                step=1,
             )
-            genre_bucket = st.text_input(
+            # Genre bucket as a selectbox with a curated set of options.
+            # If the current value isn't in the default list, prepend it
+            # so we don't lose any existing category from examples.
+            current_genre = cand.get("genre_bucket") or "unknown"
+            options = list(GENRE_BUCKET_OPTIONS)
+            if current_genre not in options:
+                options = [current_genre] + [g for g in options if g != current_genre]
+
+            genre_bucket = st.selectbox(
                 "Genre bucket",
-                value=cand.get("genre_bucket") or "unknown",
+                options=options,
+                index=options.index(current_genre),
             )
 
         submitted = st.form_submit_button("Save candidate")
