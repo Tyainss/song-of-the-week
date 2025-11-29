@@ -662,34 +662,6 @@ def _handle_predict(mode: str) -> None:
         st.success("Predictions updated. Check the candidates table for ranks and probabilities.")
 
 
-def _handle_add_favorite_example() -> None:
-    st.subheader("Add candidate from favourite songs")
-
-    if st.button("Add favourite candidate"):
-        if not _can_call("examples", cooldown_seconds=1.0):
-            st.warning("Please wait a moment before requesting more examples.")
-            return
-
-        try:
-            resp = api_client.get_favourite_examples(count=1)
-        except api_client.APIClientError as exc:
-            st.error(f"Examples API error: {exc}")
-            return
-        except Exception as exc:  # noqa: BLE001
-            st.error(f"Unexpected error while fetching favourite examples: {exc}")
-            return
-
-        items = resp.get("candidates", [])
-        if not items:
-            st.warning("No favourite examples returned by the backend.")
-            return
-
-        example = items[0]
-        candidate = example.get("candidate") or {}
-        _add_candidate(candidate)
-        st.success("Favourite candidate added from dataset.")
-
-
 def _handle_add_manual_candidate() -> None:
     st.subheader("Add manual candidate")
 
