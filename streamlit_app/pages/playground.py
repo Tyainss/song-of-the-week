@@ -257,7 +257,9 @@ def _render_candidate_details() -> None:
     # Summary title
     st.markdown(f"**{track_label}** - {artist_label}")
 
-    # Top meta: prob / rank / prediction
+    # ---------------- Prediction KPIs ---------------- #
+    st.markdown("**Prediction summary**")
+
     cols_meta = st.columns(3)
     probability = cand.get("probability")
     rank = cand.get("rank")
@@ -283,57 +285,61 @@ def _render_candidate_details() -> None:
         else:
             st.caption("Prediction: N/A")
 
-    # Headline behavioural features - now two rows of three metrics
-    # Row 1
+    # Visual separator between model output vs raw features
+    st.divider()
+
+    # ---------------- Behaviour KPIs ---------------- #
+    st.markdown("**Behaviour snapshot**")
+
+    # Row 1: popularity + core weekly intensity
     cols_feats_top = st.columns(3)
     with cols_feats_top[0]:
+        val = cand.get("spotify_popularity")
+        st.metric(
+            "Spotify popularity",
+            f"{int(val)}" if val is not None else "N/A",
+        )
+    with cols_feats_top[1]:
         val = cand.get("scrobbles_week")
         st.metric(
             "Scrobbles this week",
             f"{int(val)}" if val is not None else "N/A",
         )
-    with cols_feats_top[1]:
+    with cols_feats_top[2]:
         val = cand.get("unique_days_week")
         st.metric(
             "Unique days this week",
             f"{int(val)}" if val is not None else "N/A",
         )
-    with cols_feats_top[2]:
+
+    # Row 2: weekend focus + within-week rank + long-term familiarity
+    cols_feats_bottom = st.columns(3)
+    with cols_feats_bottom[0]:
+        val = cand.get("scrobbles_last_fri_sat")
+        st.metric(
+            "Scrobbles last Fri+Sat",
+            f"{int(val)}" if val is not None else "N/A",
+        )
+    with cols_feats_bottom[1]:
+        val = cand.get("within_week_rank_by_scrobbles")
+        st.metric(
+            "Within-week rank by scrobbles",
+            f"{int(val)}" if val is not None else "N/A",
+        )
+    with cols_feats_bottom[2]:
         val = cand.get("prior_scrobbles_all_time")
         st.metric(
             "Prior scrobbles (all time)",
             f"{int(val)}" if val is not None else "N/A",
         )
 
-    # Row 2
-    cols_feats_bottom = st.columns(3)
-    with cols_feats_bottom[0]:
-        val = cand.get("momentum_4w_ratio")
-        st.metric(
-            "Momentum (4w ratio)",
-            f"{float(val):.2f}" if val is not None else "N/A",
-        )
-    with cols_feats_bottom[1]:
-        val = cand.get("week_over_week_change")
-        st.metric(
-            "Week-over-week change",
-            f"{float(val):.2f}" if val is not None else "N/A",
-        )
-    with cols_feats_bottom[2]:
-        val = cand.get("days_since_release")
-        st.metric(
-            "Days since release",
-            f"{int(val)}" if val is not None else "N/A",
-        )
-
-    # Edit form inside an expander
+    # ---------------- Edit form ---------------- #
     expand_default = is_manual and probability is None
     with st.expander("Edit candidate", expanded=expand_default):
         form_key = f"candidate_form_{cand.get('candidate_id', 'unknown')}"
         with st.form(key=form_key):
             # --- Metadata ---
             if identity_locked:
-                # Show read-only metadata instead of empty disabled inputs
                 st.markdown("**Metadata (fixed from source)**")
                 st.caption(f"Track: **{track_label}**")
                 st.caption(f"Artist: **{artist_label}**")
@@ -426,7 +432,6 @@ def _render_candidate_details() -> None:
 
             # --- Recent history (1-4 weeks) ---
             st.markdown("**Recent history (1-4 weeks)**")
-            # col_rh1, col_rh2, col_rh3 = st.columns(3)
             col_rh1, col_rh2 = st.columns(2)
             with col_rh1:
                 scrobbles_prev_1w = st.number_input(
@@ -448,17 +453,14 @@ def _render_candidate_details() -> None:
                     value=int(cand.get("scrobbles_prev_4w") or 0),
                     step=1,
                 )
-            # with col_rh3:
                 week_over_week_change = st.number_input(
                     "Week-over-week change",
                     value=float(cand.get("week_over_week_change") or 0.0),
                     step=1.0,
                 )
-                
 
             # --- Long-term history and freshness ---
             st.markdown("**Long-term history and freshness**")
-            # col_lt1, col_lt2, col_lt3 = st.columns(3)
             col_lt1, col_lt2 = st.columns(2)
             with col_lt1:
                 prior_scrobbles_all_time = st.number_input(
@@ -481,14 +483,12 @@ def _render_candidate_details() -> None:
                     value=int(cand.get("first_seen_week") or 0),
                     step=1,
                 )
-            # with col_lt3:
                 days_since_release = st.number_input(
                     "Days since release",
                     min_value=0,
                     value=int(cand.get("days_since_release") or 0),
                     step=1,
                 )
-                
 
             submitted = st.form_submit_button("Save candidate")
 
