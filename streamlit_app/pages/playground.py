@@ -84,9 +84,16 @@ def _get_selected_candidate() -> Optional[Dict[str, Any]]:
 
 
 def _duplicate_candidate(candidate: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Duplicate an existing candidate for what-if experimentation.
+
+    - Assigns a new candidate_id.
+    - Marks the duplicate as a manual candidate so all fields are editable.
+    - Optionally appends "(copy)" to the track name for clarity.
+    """
     new_candidate = {**candidate}
     new_candidate["candidate_id"] = str(uuid4())
-    # Optionally tweak the track_name to indicate duplication
+    new_candidate["source"] = "manual"
     if new_candidate.get("track_name"):
         new_candidate["track_name"] = f"{new_candidate['track_name']} (copy)"
     return new_candidate
@@ -189,12 +196,12 @@ def _render_candidates_table() -> None:
     for cand in candidates:
         display_rows.append(
             {
-                "candidate_id": cand.get("candidate_id"),
                 "source": cand.get("source"),
                 "track_name": cand.get("track_name"),
                 "artist_name": cand.get("artist_name"),
                 "probability": cand.get("probability"),
                 "rank": cand.get("rank"),
+                "prediction": cand.get("prediction"),
             }
         )
 
@@ -224,8 +231,9 @@ def _render_candidates_table() -> None:
         "Selected candidate (for editing and Mode B)",
         options=candidate_ids,
         format_func=lambda cid: candidate_map.get(cid, cid),
-        index=0 if st.session_state.get("selected_candidate_id") not in candidate_ids else
-        candidate_ids.index(st.session_state["selected_candidate_id"]),
+        index=0
+        if st.session_state.get("selected_candidate_id") not in candidate_ids
+        else candidate_ids.index(st.session_state["selected_candidate_id"]),
     )
     st.session_state["selected_candidate_id"] = selected_id
 
@@ -238,167 +246,279 @@ def _render_candidate_details() -> None:
         st.info("Select a candidate to see details.")
         return
 
-    # Editable form for the selected candidate
-    form_key = f"candidate_form_{cand.get('candidate_id', 'unknown')}"
-    with st.form(key=form_key):
-        st.markdown("**Metadata**")
-        track_name = st.text_input(
-            "Track name",
-            value=cand.get("track_name") or "",
+    source = cand.get("source") or "manual"
+    is_manual = source == "manual"
+    # Originals from Spotify / examples keep identity fields fixed
+    identity_locked = source in {"spotify", "random_example", "favourite_example"} and not is_manual
+
+    track_label = cand.get("track_name") or "Unknown track"
+    artist_label = cand.get("artist_name") or "Unknown artist"
+
+    # Summary title
+    st.markdown(f"**{track_label}** - {artist_label}")
+
+    # Top meta: prob / rank / prediction
+    cols_meta = st.columns(3)
+    probability = cand.get("probability")
+    rank = cand.get("rank")
+    prediction = cand.get("prediction")
+    above_threshold = cand.get("above_threshold")
+
+    with cols_meta[0]:
+        if probability is not None:
+            st.metric("Probability", f"{float(probability):.1%}")
+        else:
+            st.caption("Probability: N/A")
+
+    with cols_meta[1]:
+        if rank is not None:
+            st.metric("Rank", f"{int(rank)}")
+        else:
+            st.caption("Rank: N/A")
+
+    with cols_meta[2]:
+        if prediction is not None and above_threshold is not None:
+            label = "Favourite" if int(prediction) == 1 else "Not favourite"
+            st.metric("Prediction", label)
+        else:
+            st.caption("Prediction: N/A")
+
+    # Headline behavioural features - now two rows of three metrics
+    # Row 1
+    cols_feats_top = st.columns(3)
+    with cols_feats_top[0]:
+        val = cand.get("scrobbles_week")
+        st.metric(
+            "Scrobbles this week",
+            f"{int(val)}" if val is not None else "N/A",
         )
-        artist_name = st.text_input(
-            "Artist name",
-            value=cand.get("artist_name") or "",
+    with cols_feats_top[1]:
+        val = cand.get("unique_days_week")
+        st.metric(
+            "Unique days this week",
+            f"{int(val)}" if val is not None else "N/A",
+        )
+    with cols_feats_top[2]:
+        val = cand.get("prior_scrobbles_all_time")
+        st.metric(
+            "Prior scrobbles (all time)",
+            f"{int(val)}" if val is not None else "N/A",
         )
 
-        st.markdown("**Model features**")
-        col1, col2, col3 = st.columns(3)
+    # Row 2
+    cols_feats_bottom = st.columns(3)
+    with cols_feats_bottom[0]:
+        val = cand.get("momentum_4w_ratio")
+        st.metric(
+            "Momentum (4w ratio)",
+            f"{float(val):.2f}" if val is not None else "N/A",
+        )
+    with cols_feats_bottom[1]:
+        val = cand.get("week_over_week_change")
+        st.metric(
+            "Week-over-week change",
+            f"{float(val):.2f}" if val is not None else "N/A",
+        )
+    with cols_feats_bottom[2]:
+        val = cand.get("days_since_release")
+        st.metric(
+            "Days since release",
+            f"{int(val)}" if val is not None else "N/A",
+        )
 
-        with col1:
-            spotify_popularity = st.number_input(
-                "Spotify popularity",
-                min_value=0,
-                max_value=100,
-                value=int(cand.get("spotify_popularity") or 0),
-                step=1,
-            )
-            track_duration = st.number_input(
-                "Track duration (seconds)",
-                min_value=0,
-                max_value=2000,
-                value=int(cand.get("track_duration") or 0.0),
-                step=1,
-            )
-            scrobbles_week = st.number_input(
-                "Scrobbles this week",
-                min_value=0,
-                value=int(cand.get("scrobbles_week") or 0),
-                step=1,
-            )
-            unique_days_week = st.number_input(
-                "Unique days this week",
-                min_value=0,
-                value=int(cand.get("unique_days_week") or 0),
-                step=1,
-            )
-            scrobbles_last_fri_sat = st.number_input(
-                "Scrobbles last Fri+Sat",
-                min_value=0,
-                value=int(cand.get("scrobbles_last_fri_sat") or 0),
-                step=1,
-            )
-            scrobbles_saturday = st.number_input(
-                "Scrobbles on Saturday",
-                min_value=0,
-                value=int(cand.get("scrobbles_saturday") or 0),
-                step=1,
-            )
+    # Edit form inside an expander
+    expand_default = is_manual and probability is None
+    with st.expander("Edit candidate", expanded=expand_default):
+        form_key = f"candidate_form_{cand.get('candidate_id', 'unknown')}"
+        with st.form(key=form_key):
+            # --- Metadata ---
+            if identity_locked:
+                # Show read-only metadata instead of empty disabled inputs
+                st.markdown("**Metadata (fixed from source)**")
+                st.caption(f"Track: **{track_label}**")
+                st.caption(f"Artist: **{artist_label}**")
+                track_name = cand.get("track_name") or ""
+                artist_name = cand.get("artist_name") or ""
+            else:
+                st.markdown("**Metadata**")
+                track_name = st.text_input(
+                    "Track name",
+                    value=cand.get("track_name") or "",
+                )
+                artist_name = st.text_input(
+                    "Artist name",
+                    value=cand.get("artist_name") or "",
+                )
 
-        with col2:
-            last_scrobble_gap_days = st.number_input(
-                "Gap since last scrobble (days)",
-                min_value=0.0,
-                value=float(cand.get("last_scrobble_gap_days") or 0.0),
-                step=0.5,
-            )
-            within_week_rank_by_scrobbles = st.number_input(
-                "Within-week rank by scrobbles",
-                min_value=1,
-                value=int(cand.get("within_week_rank_by_scrobbles") or 1),
-                step=1,
-            )
-            scrobbles_prev_1w = st.number_input(
-                "Scrobbles previous 1 week",
-                min_value=0,
-                value=int(cand.get("scrobbles_prev_1w") or 0),
-                step=1,
-            )
-            scrobbles_prev_4w = st.number_input(
-                "Scrobbles previous 4 weeks",
-                min_value=0,
-                value=int(cand.get("scrobbles_prev_4w") or 0),
-                step=1,
-            )
-            week_over_week_change = st.number_input(
-                "Week-over-week change",
-                value=float(cand.get("week_over_week_change") or 0.0),
-                step=1.0,
-            )
-            momentum_4w_ratio = st.number_input(
-                "Momentum (4w ratio)",
-                min_value=0.0,
-                value=float(cand.get("momentum_4w_ratio") or 0.0),
-                step=0.1,
-            )
+            # --- Track attributes ---
+            st.markdown("**Track attributes**")
+            col_attr1, col_attr2, col_attr3 = st.columns(3)
+            with col_attr1:
+                spotify_popularity = st.number_input(
+                    "Spotify popularity",
+                    min_value=0,
+                    max_value=100,
+                    value=int(cand.get("spotify_popularity") or 0),
+                    step=1,
+                )
+            with col_attr2:
+                track_duration = st.number_input(
+                    "Track duration (seconds)",
+                    min_value=0,
+                    max_value=2000,
+                    value=int(cand.get("track_duration") or 0.0),
+                    step=1,
+                )
+            with col_attr3:
+                current_genre = cand.get("genre_bucket") or "unknown"
+                options = list(GENRE_BUCKET_OPTIONS)
+                if current_genre not in options:
+                    options = [current_genre] + [g for g in options if g != current_genre]
 
-        with col3:
-            prior_scrobbles_all_time = st.number_input(
-                "Prior scrobbles (all time)",
-                min_value=0,
-                value=int(cand.get("prior_scrobbles_all_time") or 0),
-                step=1,
-            )
-            first_seen_week = st.number_input(
-                "First seen week (index)",
-                min_value=0,
-                value=int(cand.get("first_seen_week") or 0),
-                step=1,
-            )
-            days_since_release = st.number_input(
-                "Days since release",
-                min_value=0,
-                value=int(cand.get("days_since_release") or 0),
-                step=1,
-            )
-            released_within_28d = st.number_input(
-                "Released within 28 days (0/1)",
-                min_value=0,
-                max_value=1,
-                value=int(cand.get("released_within_28d") or 0),
-                step=1,
-            )
-            # Genre bucket as a selectbox with a curated set of options.
-            # If the current value isn't in the default list, prepend it
-            # so we don't lose any existing category from examples.
-            current_genre = cand.get("genre_bucket") or "unknown"
-            options = list(GENRE_BUCKET_OPTIONS)
-            if current_genre not in options:
-                options = [current_genre] + [g for g in options if g != current_genre]
+                genre_bucket = st.selectbox(
+                    "Genre bucket",
+                    options=options,
+                    index=options.index(current_genre),
+                )
 
-            genre_bucket = st.selectbox(
-                "Genre bucket",
-                options=options,
-                index=options.index(current_genre),
-            )
+            # --- Current week behaviour ---
+            st.markdown("**Current week behaviour**")
+            col_cw1, col_cw2, col_cw3 = st.columns(3)
+            with col_cw1:
+                scrobbles_week = st.number_input(
+                    "Scrobbles this week",
+                    min_value=0,
+                    value=int(cand.get("scrobbles_week") or 0),
+                    step=1,
+                )
+                unique_days_week = st.number_input(
+                    "Unique days this week",
+                    min_value=0,
+                    value=int(cand.get("unique_days_week") or 0),
+                    step=1,
+                )
+            with col_cw2:
+                scrobbles_last_fri_sat = st.number_input(
+                    "Scrobbles last Fri+Sat",
+                    min_value=0,
+                    value=int(cand.get("scrobbles_last_fri_sat") or 0),
+                    step=1,
+                )
+                scrobbles_saturday = st.number_input(
+                    "Scrobbles on Saturday",
+                    min_value=0,
+                    value=int(cand.get("scrobbles_saturday") or 0),
+                    step=1,
+                )
+            with col_cw3:
+                last_scrobble_gap_days = st.number_input(
+                    "Gap since last scrobble (days)",
+                    min_value=0.0,
+                    value=float(cand.get("last_scrobble_gap_days") or 0.0),
+                    step=1.0,
+                )
+                within_week_rank_by_scrobbles = st.number_input(
+                    "Within-week rank by scrobbles",
+                    min_value=1,
+                    value=int(cand.get("within_week_rank_by_scrobbles") or 1),
+                    step=1,
+                )
 
-        submitted = st.form_submit_button("Save candidate")
+            # --- Recent history (1-4 weeks) ---
+            st.markdown("**Recent history (1-4 weeks)**")
+            # col_rh1, col_rh2, col_rh3 = st.columns(3)
+            col_rh1, col_rh2 = st.columns(2)
+            with col_rh1:
+                scrobbles_prev_1w = st.number_input(
+                    "Scrobbles previous 1 week",
+                    min_value=0,
+                    value=int(cand.get("scrobbles_prev_1w") or 0),
+                    step=1,
+                )
+                momentum_4w_ratio = st.number_input(
+                    "Momentum (4w ratio)",
+                    min_value=0.0,
+                    value=float(cand.get("momentum_4w_ratio") or 0.0),
+                    step=0.1,
+                )
+            with col_rh2:
+                scrobbles_prev_4w = st.number_input(
+                    "Scrobbles previous 4 weeks",
+                    min_value=0,
+                    value=int(cand.get("scrobbles_prev_4w") or 0),
+                    step=1,
+                )
+            # with col_rh3:
+                week_over_week_change = st.number_input(
+                    "Week-over-week change",
+                    value=float(cand.get("week_over_week_change") or 0.0),
+                    step=1.0,
+                )
+                
 
-        if submitted:
-            # Mutate the selected candidate in session_state
-            cand.update(
-                {
-                    "track_name": track_name or "",
-                    "artist_name": artist_name or "",
-                    "spotify_popularity": spotify_popularity,
-                    "track_duration": track_duration,
-                    "scrobbles_week": scrobbles_week,
-                    "unique_days_week": unique_days_week,
-                    "scrobbles_last_fri_sat": scrobbles_last_fri_sat,
-                    "scrobbles_saturday": scrobbles_saturday,
-                    "last_scrobble_gap_days": last_scrobble_gap_days,
-                    "within_week_rank_by_scrobbles": within_week_rank_by_scrobbles,
-                    "scrobbles_prev_1w": scrobbles_prev_1w,
-                    "scrobbles_prev_4w": scrobbles_prev_4w,
-                    "week_over_week_change": week_over_week_change,
-                    "momentum_4w_ratio": momentum_4w_ratio,
-                    "prior_scrobbles_all_time": prior_scrobbles_all_time,
-                    "first_seen_week": first_seen_week,
-                    "days_since_release": days_since_release,
-                    "released_within_28d": released_within_28d,
-                    "genre_bucket": genre_bucket or "unknown",
-                }
-            )
-            st.success("Candidate updated. Re-run predictions to see the impact.")
+            # --- Long-term history and freshness ---
+            st.markdown("**Long-term history and freshness**")
+            # col_lt1, col_lt2, col_lt3 = st.columns(3)
+            col_lt1, col_lt2 = st.columns(2)
+            with col_lt1:
+                prior_scrobbles_all_time = st.number_input(
+                    "Prior scrobbles (all time)",
+                    min_value=0,
+                    value=int(cand.get("prior_scrobbles_all_time") or 0),
+                    step=1,
+                )
+                released_within_28d = st.number_input(
+                    "Released within 28 days (0/1)",
+                    min_value=0,
+                    max_value=1,
+                    value=int(cand.get("released_within_28d") or 0),
+                    step=1,
+                )
+            with col_lt2:
+                first_seen_week = st.number_input(
+                    "First seen week (index)",
+                    min_value=0,
+                    value=int(cand.get("first_seen_week") or 0),
+                    step=1,
+                )
+            # with col_lt3:
+                days_since_release = st.number_input(
+                    "Days since release",
+                    min_value=0,
+                    value=int(cand.get("days_since_release") or 0),
+                    step=1,
+                )
+                
+
+            submitted = st.form_submit_button("Save candidate")
+
+            if submitted:
+                cand.update(
+                    {
+                        "track_name": track_name or "",
+                        "artist_name": artist_name or "",
+                        "spotify_popularity": spotify_popularity,
+                        "track_duration": track_duration,
+                        "scrobbles_week": scrobbles_week,
+                        "unique_days_week": unique_days_week,
+                        "scrobbles_last_fri_sat": scrobbles_last_fri_sat,
+                        "scrobbles_saturday": scrobbles_saturday,
+                        "last_scrobble_gap_days": last_scrobble_gap_days,
+                        "within_week_rank_by_scrobbles": within_week_rank_by_scrobbles,
+                        "scrobbles_prev_1w": scrobbles_prev_1w,
+                        "scrobbles_prev_4w": scrobbles_prev_4w,
+                        "week_over_week_change": week_over_week_change,
+                        "momentum_4w_ratio": momentum_4w_ratio,
+                        "prior_scrobbles_all_time": prior_scrobbles_all_time,
+                        "first_seen_week": first_seen_week,
+                        "days_since_release": days_since_release,
+                        "released_within_28d": released_within_28d,
+                        "genre_bucket": genre_bucket or "unknown",
+                    }
+                )
+                st.success("Candidate updated. Re-run predictions to see the impact.")
+
+
 
 
 def _handle_add_from_spotify_url() -> None:
