@@ -119,7 +119,7 @@ def _build_manual_candidate_template() -> Dict[str, Any]:
         "scrobbles_last_fri_sat": 0.0,
         "scrobbles_saturday": 0.0,
         "last_scrobble_gap_days": 0.0,
-        "within_week_rank_by_scrobbles": 1.0,
+        "within_week_rank_by_scrobbles": 10.0,
         "scrobbles_prev_1w": 0.0,
         "scrobbles_prev_4w": 0.0,
         "week_over_week_change": 0.0,
@@ -178,7 +178,7 @@ def _render_mode_selector() -> str:
         index=0,
         help=(
             "Mode A: rank all candidates and pick a winner. "
-            "Mode B: check whether a single candidate would be a favourite."
+            "Mode B: check whether a single candidate would be a favorite."
         ),
     )
     if mode_label.startswith("Ranking"):
@@ -249,7 +249,7 @@ def _render_candidate_details() -> None:
     source = cand.get("source") or "manual"
     is_manual = source == "manual"
     # Originals from Spotify / examples keep identity fields fixed
-    identity_locked = source in {"spotify", "random_example", "favourite_example"} and not is_manual
+    identity_locked = source in {"spotify", "random_example", "favorite_example"} and not is_manual
 
     track_label = cand.get("track_name") or "Unknown track"
     artist_label = cand.get("artist_name") or "Unknown artist"
@@ -280,7 +280,7 @@ def _render_candidate_details() -> None:
 
     with cols_meta[2]:
         if prediction is not None and above_threshold is not None:
-            label = "Favourite" if int(prediction) == 1 else "Not favourite"
+            label = "Favorite" if int(prediction) == 1 else "Not favorite"
             st.metric("Prediction", label)
         else:
             st.caption("Prediction: N/A")
@@ -579,9 +579,9 @@ def _handle_add_random_example() -> None:
         st.success("Random candidate added from dataset.")
 
 def _handle_add_favorite_example() -> None:
-    st.subheader("Add candidate from favourite songs")
+    st.subheader("Add candidate from favorite songs")
 
-    if st.button("Add favourite candidate"):
+    if st.button("Add favorite candidate"):
         if not _can_call("examples", cooldown_seconds=1.0):
             st.warning("Please wait a moment before requesting more examples.")
             return
@@ -592,18 +592,18 @@ def _handle_add_favorite_example() -> None:
             st.error(f"Examples API error: {exc}")
             return
         except Exception as exc:  # noqa: BLE001
-            st.error(f"Unexpected error while fetching favourite examples: {exc}")
+            st.error(f"Unexpected error while fetching favorite examples: {exc}")
             return
 
         items = resp.get("candidates", [])
         if not items:
-            st.warning("No favourite examples returned by the backend.")
+            st.warning("No favorite examples returned by the backend.")
             return
 
         example = items[0]
         candidate = example.get("candidate") or {}
         _add_candidate(candidate)
-        st.success("Favourite candidate added from dataset.")
+        st.success("Favorite candidate added from dataset.")
 
 
 def _handle_duplicate_candidate() -> None:
@@ -704,12 +704,12 @@ def _render_single_mode_summary(prediction_response: Dict[str, Any]) -> None:
 
     if is_fav:
         st.success(
-            f"✅ Model would treat this song as a *favourite* "
+            f"✅ Model would treat this song as a *favorite* "
             f"(p = {prob:.3f}, threshold = {threshold:.3f})."
         )
     else:
         st.info(
-            f"ℹ️ Model would **not** treat this song as a favourite "
+            f"ℹ️ Model would **not** treat this song as a favorite "
             f"(p = {prob:.3f}, threshold = {threshold:.3f})."
         )
 
