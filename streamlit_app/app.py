@@ -1,9 +1,14 @@
 
 import streamlit as st
-# import os
 
 
 def define_pages():
+    song_predictor_page = st.Page(
+        "pages/song_predictor.py", 
+        title="Song Predictor", 
+        icon="🔮", 
+        default=True 
+    )
     playground_page = st.Page(
         "pages/playground.py",
         title="Playground",
@@ -22,6 +27,7 @@ def define_pages():
 
     pg = st.navigation(
         [
+            song_predictor_page,
             playground_page,
             model_insights_page,
             data_explorer_page,
@@ -30,7 +36,7 @@ def define_pages():
 
     st.set_page_config(
         layout="wide",
-        page_title="Song of the Week - Playground",
+        page_title="SOTW - Song Predictor",
         page_icon="🎵",
     )
 
@@ -38,9 +44,6 @@ def define_pages():
 
 
 pg = define_pages()
-
-# Optional: uncomment and point to a logo file when you have one
 st.logo("streamlit_app/logo/personal_mark.png")
-
 pg.run()
 
