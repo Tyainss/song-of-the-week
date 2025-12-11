@@ -9,11 +9,6 @@ def define_pages():
         icon="🔮", 
         default=True 
     )
-    playground_page = st.Page(
-        "pages/playground.py",
-        title="Playground",
-        icon="🎵",
-    )
     model_insights_page = st.Page(
         "pages/model_insights.py",
         title="Model Insights",
@@ -28,7 +23,6 @@ def define_pages():
     pg = st.navigation(
         [
             song_predictor_page,
-            playground_page,
             model_insights_page,
             data_explorer_page,
         ]
