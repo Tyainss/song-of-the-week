@@ -13,6 +13,7 @@ GENRE_BUCKET_OPTIONS: List[str] = [
     "folk_country_americana", "metal_hard", "rock", "pop", "latin",
     "world_regional", "experimental_avant", "unknown",
 ]
+COOLDOWN_SECONDS: float = 1.0
 
 # --- State Management ---
 
@@ -25,9 +26,8 @@ def _init_session_state() -> None:
         st.session_state["selected_candidate_id"] = None
     if "last_threshold" not in st.session_state:
         st.session_state["last_threshold"] = 0.5
-    # Tracks which mode was run last to control visual visibility
     if "last_prediction_mode" not in st.session_state:
-        st.session_state["last_prediction_mode"] = None  # Options: 'ranking', 'single', None
+        st.session_state["last_prediction_mode"] = None
 
 def _ensure_backend_warmup() -> None:
     if st.session_state.get("backend_warmed_up"):
@@ -38,11 +38,12 @@ def _ensure_backend_warmup() -> None:
     except Exception:
         pass
 
-def _can_call(name: str, cooldown_seconds: float = 1.0) -> bool:
+def _can_call(name: str) -> bool:
     key = f"last_call_{name}"
     now = time.time()
     last = st.session_state.get(key, 0.0)
-    if now - last < cooldown_seconds:
+    if now - last < COOLDOWN_SECONDS:
+        st.warning("Please wait a moment before making another request.")
         return False
     st.session_state[key] = now
     return True
@@ -72,7 +73,7 @@ def _remove_candidate(cid: str) -> None:
 def _remove_all_candidates() -> None:
     st.session_state["candidates"] = []
     st.session_state["selected_candidate_id"] = None
-    st.session_state["last_prediction_mode"] = None # Reset mode on clear
+    st.session_state["last_prediction_mode"] = None
 
 def _duplicate_candidate(candidate: Dict[str, Any]) -> None:
     new_candidate = {**candidate}
@@ -80,7 +81,6 @@ def _duplicate_candidate(candidate: Dict[str, Any]) -> None:
     new_candidate["source"] = "manual"
     if new_candidate.get("track_name"):
         new_candidate["track_name"] = f"{new_candidate['track_name']} (copy)"
-    # Reset prediction results on duplicate
     for k in ["probability", "rank", "prediction", "above_threshold"]:
         new_candidate[k] = None
     _add_candidate(new_candidate)
@@ -92,13 +92,14 @@ def _build_manual_template() -> Dict[str, Any]:
         "track_name": "New Track",
         "artist_name": "New Artist",
         "week_start": None,
+        # Features - Min values changed to 0 where appropriate
         "spotify_popularity": 50.0,
         "track_duration": 180.0,
         "genre_bucket": "pop",
-        "scrobbles_week": 10.0,
-        "unique_days_week": 3.0,
-        "scrobbles_last_fri_sat": 5.0,
-        "scrobbles_saturday": 2.0,
+        "scrobbles_week": 0.0,
+        "unique_days_week": 0.0,
+        "scrobbles_last_fri_sat": 0.0,
+        "scrobbles_saturday": 0.0,
         "last_scrobble_gap_days": 0.0,
         "within_week_rank_by_scrobbles": 5.0,
         "scrobbles_prev_1w": 0.0,
@@ -109,6 +110,7 @@ def _build_manual_template() -> Dict[str, Any]:
         "first_seen_week": 0.0,
         "days_since_release": 100.0,
         "released_within_28d": 0.0,
+        # Outputs
         "probability": None,
         "rank": None,
         "prediction": None,
@@ -127,7 +129,6 @@ def _merge_predictions(response: Dict[str, Any], mode: str) -> None:
         cid = cand.get("candidate_id")
         match = res_map.get(cid)
         
-        # In Ranking mode, if IDs fail, we fallback to list index
         if not match and idx < len(res_list) and mode == "ranking":
             match = res_list[idx]
 
@@ -153,32 +154,41 @@ def render_add_candidate_section():
             url = col1.text_input("Track URL", placeholder="http://spotify.com/...", label_visibility="collapsed")
             if col2.button("Fetch", key="btn_add_spotify", use_container_width=True):
                 if url:
-                    try:
-                        c = api_client.get_spotify_candidate_from_url(url)
-                        _add_candidate(c)
-                        st.toast(f"Added: {c.get('track_name')}", icon="✅")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
+                    if _can_call("spotify"): # Cooldown Check
+                        try:
+                            c = api_client.get_spotify_candidate_from_url(url)
+                            c["scrobbles_week"] = int(c.get("scrobbles_week", 0))
+                            c["unique_days_week"] = int(c.get("unique_days_week", 0))
+                            _add_candidate(c)
+                            st.toast(f"Added: {c.get('track_name')}", icon="✅")
+                        except Exception as e:
+                            st.error(f"Error fetching Spotify candidate: {e}")
 
         with tab_random:
             st.caption("Pull a random non-favorite song from your listening history.")
             if st.button("Add Random Track", key="btn_add_rnd"):
-                if _can_call("ex_rnd"):
-                    resp = api_client.get_random_examples(1)
-                    if resp.get("candidates"):
-                        c = resp["candidates"][0]["candidate"]
-                        _add_candidate(c)
-                        st.toast("Random candidate added", icon="🎲")
+                if _can_call("examples"): # Cooldown Check
+                    try:
+                        resp = api_client.get_random_examples(1)
+                        if resp.get("candidates"):
+                            c = resp["candidates"][0]["candidate"]
+                            _add_candidate(c)
+                            st.toast("Random candidate added", icon="🎲")
+                    except Exception as e:
+                        st.error(f"Error fetching random example: {e}")
 
         with tab_fav:
             st.caption("Pull a historical 'Song of the Week' from your dataset.")
             if st.button("Add Favorite Track", key="btn_add_fav"):
-                if _can_call("ex_fav"):
-                    resp = api_client.get_favorite_examples(1)
-                    if resp.get("candidates"):
-                        c = resp["candidates"][0]["candidate"]
-                        _add_candidate(c)
-                        st.toast("Favorite candidate added", icon="❤️")
+                if _can_call("examples"): # Cooldown Check
+                    try:
+                        resp = api_client.get_favorite_examples(1)
+                        if resp.get("candidates"):
+                            c = resp["candidates"][0]["candidate"]
+                            _add_candidate(c)
+                            st.toast("Favorite candidate added", icon="❤️")
+                    except Exception as e:
+                        st.error(f"Error fetching favorite example: {e}")
 
         with tab_manual:
             st.caption("Start from scratch.")
@@ -219,26 +229,21 @@ def render_candidate_list():
     
     df = pd.DataFrame(df_data)
 
-    # Sort logic matches visual logic:
-    # If Ranking Mode -> Sort by Rank
-    # If Check Mode -> Sort by Prob (desc)
     if last_mode == "ranking" and "Rank" in df.columns and df["Rank"].notna().any():
         df = df.sort_values(by=["Rank", "Prob"], ascending=[True, False])
     
-    # Configure Columns based on Mode
+    # Configure Columns
     column_config = {
         "id": None, 
-        # Display with 2 decimal places
         "Prob": st.column_config.ProgressColumn(
             "Confidence", format="%.2f%%", min_value=0, max_value=1
         ),
     }
 
-    # Only show Rank column if we are in Ranking mode
     if last_mode == "ranking":
         column_config["Rank"] = st.column_config.NumberColumn("Rank", format="%d")
     else:
-        column_config["Rank"] = None # Hide column
+        column_config["Rank"] = None
 
     event = st.dataframe(
         df,
@@ -270,7 +275,8 @@ def render_controls():
         mode_select = st.selectbox(
             "Analysis Scope",
             options=["Rank All", "Check Selected"],
-            help="Rank All: Compare all songs to find a winner. Check Selected: See if the selected song passes the threshold."
+            help="**Rank All**: Compare all candidate songs to find a winner. \n\n**Check Selected**: See if the selected song passes the threshold to be a favourite.",
+            key="analysis_mode_select" # Use key to keep state stable
         )
     
     with col_btn:
@@ -296,8 +302,9 @@ def _handle_prediction(mode_ui_label: str):
     else:
         payload = candidates
 
-    with st.spinner("Asking the model..."):
+    with st.spinner("Analyzing..."):
         try:
+            # We don't use _can_call here as this is a deliberate prediction run
             resp = api_client.predict_candidates(payload, mode=mode_api)
             _merge_predictions(resp, mode_api)
             
@@ -322,29 +329,28 @@ def render_inspector_panel():
     if not cand:
         return
 
-    # Header & Actions (Standard buttons)
+    # 1. Header & Actions (Standard buttons)
     with st.container(border=True):
         st.subheader(cand.get("track_name", "Unknown"))
         st.caption(cand.get("artist_name", "Unknown"))
         
         col_act1, col_act2 = st.columns(2)
         with col_act1:
-            if st.button("Duplicate", use_container_width=True):
+            if st.button("Duplicate", use_container_width=True, key="btn_insp_duplicate"):
                 _duplicate_candidate(cand)
                 st.rerun()
         with col_act2:
-            if st.button("Remove", use_container_width=True, type="primary"):
+            if st.button("Remove", use_container_width=True, type="primary", key="btn_insp_remove"):
                 _remove_candidate(cid)
                 st.rerun()
 
-    # Result Card
+    # 2. Result Card - VISUAL SEPARATION BASED ON MODE
     prob = cand.get("probability")
     last_mode = st.session_state.get("last_prediction_mode")
 
     if prob is not None:
         threshold = cand.get("_threshold_at_prediction") or st.session_state.get("last_threshold", 0.5)
         
-        # Scenario A: Check Mode -> Show Pass/Fail Status
         if last_mode == "single":
             is_fav = prob >= threshold
             if is_fav:
@@ -369,11 +375,9 @@ def render_inspector_panel():
                 """, unsafe_allow_html=True
             )
         
-        # Scenario B: Ranking Mode -> Show Rank (if available)
         elif last_mode == "ranking":
             rank = cand.get("rank")
             rank_display = f"#{rank}" if rank else "N/A"
-            # Highlight Winner
             if rank == 1:
                 bg_color = "rgba(255, 193, 7, 0.1)" # Gold
                 border_color = "gold"
@@ -396,11 +400,11 @@ def render_inspector_panel():
                 """, unsafe_allow_html=True
             )
 
-    # Edit Features (Grouped)
+    # 3. Edit Features (Grouped)
     st.markdown("**Feature Editor**")
     is_manual = cand.get("source") == "manual"
     
-    # Track Properties
+    # Track Properties - Expanded by default
     with st.expander("Track Properties", expanded=True):
         if is_manual:
             cand["track_name"] = st.text_input("Track Name", cand.get("track_name"))
@@ -408,39 +412,125 @@ def render_inspector_panel():
         
         c1, c2 = st.columns(2)
         with c1:
+            # Use float value to avoid casting issues, step=1 for popularity
             cand["spotify_popularity"] = st.slider("Popularity", 0, 100, int(cand.get("spotify_popularity", 0)))
-            cand["track_duration"] = st.number_input("Duration (s)", value=int(cand.get("track_duration", 180)))
+            # Duration should be able to go to 0, and use integer step
+            cand["track_duration"] = st.number_input(
+                "Duration (s)", 
+                min_value=0, 
+                value=int(cand.get("track_duration", 180)),
+                step=1,
+                key=f"dur_{cid}"
+            )
         with c2:
-            cand["days_since_release"] = st.number_input("Days Since Release", value=int(cand.get("days_since_release", 0)))
+            # Days since release should be able to go to 0
+            cand["days_since_release"] = st.number_input(
+                "Days Since Release", 
+                min_value=0, 
+                value=int(cand.get("days_since_release", 100)),
+                step=1,
+                key=f"dsr_{cid}"
+            )
             
             curr_genre = cand.get("genre_bucket", "unknown")
             opts = GENRE_BUCKET_OPTIONS if curr_genre in GENRE_BUCKET_OPTIONS else [curr_genre] + GENRE_BUCKET_OPTIONS
             cand["genre_bucket"] = st.selectbox("Genre", opts, index=opts.index(curr_genre))
 
-    # Weekly Intensity
+    # Weekly Intensity - Expanded by default
     with st.expander("Weekly Intensity", expanded=True):
         c1, c2 = st.columns(2)
         with c1:
-            cand["scrobbles_week"] = st.number_input("Scrobbles (Week)", value=int(cand.get("scrobbles_week", 0)))
-            cand["unique_days_week"] = st.number_input("Unique Days", 0, 7, int(cand.get("unique_days_week", 1)))
+            cand["scrobbles_week"] = st.number_input(
+                "Scrobbles in the Week", 
+                min_value=0, 
+                value=int(cand.get("scrobbles_week", 0)),
+                step=1,
+                key=f"scrw_{cid}"
+            )
+            cand["unique_days_week"] = st.number_input(
+                "Unique Days played that week", 
+                min_value=0, 
+                max_value=7, 
+                value=int(cand.get("unique_days_week", 0)),
+                step=1,
+                key=f"udw_{cid}"
+            )
         with c2:
-            cand["within_week_rank_by_scrobbles"] = st.number_input("Rank (in week)", min_value=1, value=int(cand.get("within_week_rank_by_scrobbles", 10)))
-            cand["scrobbles_saturday"] = st.number_input("Scrobbles (Sat)", value=int(cand.get("scrobbles_saturday", 0)))
+            # Rank in week should start at 1
+            cand["within_week_rank_by_scrobbles"] = st.number_input(
+                "Rank (in week)", 
+                min_value=1, 
+                value=int(cand.get("within_week_rank_by_scrobbles", 10)),
+                step=1,
+                key=f"wwr_{cid}"
+            )
+            # Scrobbles should be able to go to 0
+            cand["scrobbles_saturday"] = st.number_input(
+                "Scrobbles (Sat)", 
+                min_value=0, 
+                value=int(cand.get("scrobbles_saturday", 0)),
+                step=1,
+                key=f"scrsat_{cid}"
+            )
         
-        cand["scrobbles_last_fri_sat"] = st.number_input("Scrobbles (Fri+Sat)", value=int(cand.get("scrobbles_last_fri_sat", 0)))
+        cand["scrobbles_last_fri_sat"] = st.number_input(
+            "Scrobbles (Fri+Sat)", 
+            min_value=0, 
+            value=int(cand.get("scrobbles_last_fri_sat", 0)),
+            step=1,
+            key=f"scrfs_{cid}"
+        )
 
-    # History & Trend
+    # History & Trends - Collapsed by default
     with st.expander("History & Trends", expanded=False):
         c1, c2 = st.columns(2)
         with c1:
-            cand["scrobbles_prev_1w"] = st.number_input("Scrobbles (Prev 1w)", value=int(cand.get("scrobbles_prev_1w", 0)))
-            cand["scrobbles_prev_4w"] = st.number_input("Scrobbles (Prev 4w)", value=int(cand.get("scrobbles_prev_4w", 0)))
+            cand["scrobbles_prev_1w"] = st.number_input(
+                "Scrobbles (Prev 1w)", 
+                min_value=0, 
+                value=int(cand.get("scrobbles_prev_1w", 0)),
+                step=1,
+                key=f"scrp1_{cid}"
+            )
+            cand["scrobbles_prev_4w"] = st.number_input(
+                "Scrobbles (Prev 4w)", 
+                min_value=0, 
+                value=int(cand.get("scrobbles_prev_4w", 0)),
+                step=1,
+                key=f"scrp4_{cid}"
+            )
         with c2:
-            cand["prior_scrobbles_all_time"] = st.number_input("All Time Scrobbles", value=int(cand.get("prior_scrobbles_all_time", 0)))
-            cand["momentum_4w_ratio"] = st.number_input("Momentum (4w)", value=float(cand.get("momentum_4w_ratio", 0.0)))
+            cand["prior_scrobbles_all_time"] = st.number_input(
+                "All Time Scrobbles", 
+                min_value=0, 
+                value=int(cand.get("prior_scrobbles_all_time", 0)),
+                step=1,
+                key=f"scrat_{cid}"
+            )
+            # Momentum can be negative or positive, using default min_value for float
+            cand["momentum_4w_ratio"] = st.number_input(
+                "Momentum (4w)", 
+                value=float(cand.get("momentum_4w_ratio", 0.0)),
+                step=0.1,
+                key=f"mom4w_{cid}"
+            )
 
-        cand["week_over_week_change"] = st.number_input("WoW Change", value=float(cand.get("week_over_week_change", 0.0)))
-        cand["last_scrobble_gap_days"] = st.number_input("Days since last play", value=float(cand.get("last_scrobble_gap_days", 0.0)))
+        # WoW change can be negative or positive
+        cand["week_over_week_change"] = st.number_input(
+            "WoW Change", 
+            value=int(cand.get("week_over_week_change", 0)),
+            step=1,
+            key=f"wowc_{cid}"
+        )
+        # Days since last play can be 0 or high
+        cand["last_scrobble_gap_days"] = st.number_input(
+            "Days since last play", 
+            min_value=0,
+            value=int(cand.get("last_scrobble_gap_days", 0)),
+            step=1,
+            key=f"lsgd_{cid}"
+        )
+
 
 def main():
     _init_session_state()
