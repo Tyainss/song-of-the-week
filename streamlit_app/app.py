@@ -9,22 +9,10 @@ def define_pages():
         icon="🔮", 
         default=True 
     )
-    model_insights_page = st.Page(
-        "pages/model_insights.py",
-        title="Model Insights",
-        icon="📈",
-    )
-    data_explorer_page = st.Page(
-        "pages/data_explorer.py",
-        title="Data Explorer",
-        icon="📂",
-    )
 
     pg = st.navigation(
         [
             song_predictor_page,
-            model_insights_page,
-            data_explorer_page,
         ]
     )
 
