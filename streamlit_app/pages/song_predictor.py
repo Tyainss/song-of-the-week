@@ -1,7 +1,7 @@
 import streamlit as st
 
-from app_core.song_predictor import state, views
-from utils import api_client
+from streamlit_app.app_core.song_predictor import state, views
+from streamlit_app.utils import api_client
 
 # --- Startup Helpers ---
 

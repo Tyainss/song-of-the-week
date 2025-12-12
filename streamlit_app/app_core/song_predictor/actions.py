@@ -1,7 +1,7 @@
 
 import streamlit as st
 
-from ...utils import api_client
+from streamlit_app.utils import api_client
 from . import state
 
 def handle_fetch_spotify_candidate(url: str) -> None:
