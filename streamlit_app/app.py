@@ -9,10 +9,15 @@ def define_pages():
         icon="🔮", 
         default=True 
     )
+    about_page = st.Page(
+        "pages/about.py",
+        title="About",
+    )
 
     pg = st.navigation(
         [
             song_predictor_page,
+            about_page,
         ]
     )
 
