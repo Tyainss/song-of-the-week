@@ -113,3 +113,28 @@ def test_update_results_updates_candidates_by_id(monkeypatch, fake_st):
     assert c2["above_threshold"] is True
     assert c2["rank"] == 1
     assert c2["_threshold_at_prediction"] == 0.7
+
+def test_update_results_ranking_falls_back_to_index_when_ids_missing(monkeypatch, fake_st):
+    monkeypatch.setattr(state, "st", fake_st)
+    state.init_session_state()
+
+    c1 = {"candidate_id": "c1", "track_name": "T1", "artist_name": "A1"}
+    c2 = {"candidate_id": "c2", "track_name": "T2", "artist_name": "A2"}
+    fake_st.session_state["candidates"] = [c1, c2]
+
+    response = {
+        "threshold": 0.6,
+        # candidate_id values do NOT match c1/c2 on purpose
+        "results": [
+            {"candidate_id": "x", "probability": 0.9, "prediction": 1, "above_threshold": True, "rank": 1},
+            {"candidate_id": "y", "probability": 0.1, "prediction": 0, "above_threshold": False, "rank": 2},
+        ],
+    }
+
+    state.update_results(response, mode="ranking")
+
+    # Fallback-by-index should apply:
+    assert c1["probability"] == 0.9
+    assert c1["rank"] == 1
+    assert c2["probability"] == 0.1
+    assert c2["rank"] == 2
