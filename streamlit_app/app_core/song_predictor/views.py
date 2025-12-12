@@ -9,7 +9,7 @@ from . import actions
 
 def render_add_candidate_section():
     """Tabbed interface for adding candidates."""
-    st.markdown("### 1. Draft Candidates")
+    st.markdown("### Draft Candidates")
     
     with st.container(border=True):
         tab_spotify, tab_random, tab_fav, tab_manual = st.tabs([
@@ -55,7 +55,7 @@ def render_main_workspace():
         render_inspector_panel()
 
 def render_candidate_list():
-    st.markdown("### 2. Candidate List")
+    st.markdown("### Candidate List")
     candidates = state.get_candidates()
     last_mode = state.get_last_prediction_mode()
     
@@ -85,7 +85,8 @@ def render_candidate_list():
         "id": None, 
         # Display with 2 decimal places
         "Prob": st.column_config.ProgressColumn(
-            "Confidence", format="%.2f%%", min_value=0, max_value=1
+            "Confidence", format="%.2f%%", 
+            min_value=0, max_value=1
         ),
     }
 
@@ -140,7 +141,7 @@ def render_controls():
             actions.handle_prediction(mode_select)
 
 def render_inspector_panel():
-    st.markdown("### 3. Inspector")
+    st.markdown("### Inspector")
     
     cand = state.get_selected_candidate()
     cid = state.get_selected_candidate_id()
