@@ -138,3 +138,18 @@ def test_update_results_ranking_falls_back_to_index_when_ids_missing(monkeypatch
     assert c1["rank"] == 1
     assert c2["probability"] == 0.1
     assert c2["rank"] == 2
+
+def test_can_call_enforces_cooldown(monkeypatch, fake_st):
+    monkeypatch.setattr(state, "st", fake_st)
+    state.init_session_state()
+
+    # time starts at 1000
+    t = {"now": 1000.0}
+    monkeypatch.setattr(state.time, "time", lambda: t["now"])
+
+    assert state.can_call("predict") is True
+    assert state.can_call("predict") is False  # immediately blocked
+
+    # advance beyond cooldown window
+    t["now"] = 1000.0 + state.COOLDOWN_SECONDS + 0.01
+    assert state.can_call("predict") is True
