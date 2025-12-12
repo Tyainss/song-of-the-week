@@ -51,3 +51,65 @@ def test_duplicate_candidate_creates_clean_copy_and_selects_it(monkeypatch, fake
     assert new_cand["rank"] is None
     assert new_cand["prediction"] is None
     assert new_cand["above_threshold"] is None
+
+def test_add_candidate_assigns_id_and_selects(monkeypatch, fake_st):
+    # Arrange
+    monkeypatch.setattr(state, "st", fake_st)
+    state.init_session_state()
+
+    # Make uuid deterministic (so the test is stable)
+    monkeypatch.setattr(state, "uuid4", lambda: "fixed-id-123")
+
+    candidate = {
+        "candidate_id": None,  # intentionally missing
+        "track_name": "Track A",
+        "artist_name": "Artist A",
+        "source": "spotify",
+    }
+
+    # Act
+    state.add_candidate(candidate)
+
+    # Assert
+    assert len(fake_st.session_state["candidates"]) == 1
+    assert fake_st.session_state["candidates"][0]["candidate_id"] == "fixed-id-123"
+    assert fake_st.session_state["selected_candidate_id"] == "fixed-id-123"
+
+
+def test_update_results_updates_candidates_by_id(monkeypatch, fake_st):
+    # Arrange
+    monkeypatch.setattr(state, "st", fake_st)
+    state.init_session_state()
+
+    c1 = {"candidate_id": "c1", "track_name": "T1", "artist_name": "A1"}
+    c2 = {"candidate_id": "c2", "track_name": "T2", "artist_name": "A2"}
+    fake_st.session_state["candidates"] = [c1, c2]
+
+    response = {
+        "threshold": 0.7,
+        "results": [
+            {"candidate_id": "c2", "probability": 0.91, "prediction": 1, "above_threshold": True, "rank": 1},
+            {"candidate_id": "c1", "probability": 0.12, "prediction": 0, "above_threshold": False, "rank": 2},
+        ],
+    }
+
+    # Act
+    state.update_results(response, mode="ranking")
+
+    # Assert: session-level fields
+    assert fake_st.session_state["last_threshold"] == 0.7
+    assert fake_st.session_state["last_prediction_mode"] == "ranking"
+
+    # Assert: c1 updated correctly (matched by id)
+    assert c1["probability"] == 0.12
+    assert c1["prediction"] == 0
+    assert c1["above_threshold"] is False
+    assert c1["rank"] == 2
+    assert c1["_threshold_at_prediction"] == 0.7
+
+    # Assert: c2 updated correctly (matched by id)
+    assert c2["probability"] == 0.91
+    assert c2["prediction"] == 1
+    assert c2["above_threshold"] is True
+    assert c2["rank"] == 1
+    assert c2["_threshold_at_prediction"] == 0.7
