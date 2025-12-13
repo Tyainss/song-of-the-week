@@ -18,6 +18,7 @@ def test_handle_prediction_single_requires_selected_candidate(monkeypatch, fake_
     assert len(fake_st.errors) == 1
     assert fake_st.reruns == 0
 
+
 def test_handle_prediction_ranking_calls_api_and_reruns(monkeypatch, fake_st):
     # Arrange
     monkeypatch.setattr(actions, "st", fake_st)
@@ -48,8 +49,20 @@ def test_handle_prediction_ranking_calls_api_and_reruns(monkeypatch, fake_st):
             return {
                 "threshold": 0.5,
                 "results": [
-                    {"candidate_id": "c1", "probability": 0.8, "prediction": 1, "above_threshold": True, "rank": 1},
-                    {"candidate_id": "c2", "probability": 0.2, "prediction": 0, "above_threshold": False, "rank": 2},
+                    {
+                        "candidate_id": "c1",
+                        "probability": 0.8,
+                        "prediction": 1,
+                        "above_threshold": True,
+                        "rank": 1,
+                    },
+                    {
+                        "candidate_id": "c2",
+                        "probability": 0.2,
+                        "prediction": 0,
+                        "above_threshold": False,
+                        "rank": 2,
+                    },
                 ],
             }
 

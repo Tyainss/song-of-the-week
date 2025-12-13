@@ -11,7 +11,9 @@ from extraction.apis.lastfm import LastFMAPI
 logger = logging.getLogger(__name__)
 
 
-def _unique_not_in(existing_csv: Path, columns: list[str], new_df: pd.DataFrame) -> pd.DataFrame:
+def _unique_not_in(
+    existing_csv: Path, columns: list[str], new_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     Return unique rows from new_df[columns] that are not present in existing_csv[columns].
     """
@@ -33,7 +35,9 @@ def _unique_not_in(existing_csv: Path, columns: list[str], new_df: pd.DataFrame)
     return new_df[columns].drop_duplicates()
 
 
-def _resolve_window(cfg_lastfm: dict[str, Any], scrobbles_csv: Path) -> tuple[str | None, str | None]:
+def _resolve_window(
+    cfg_lastfm: dict[str, Any], scrobbles_csv: Path
+) -> tuple[str | None, str | None]:
     """
     Determine (from_unix, to_unix) for the extraction window.
 
@@ -57,7 +61,9 @@ def _resolve_window(cfg_lastfm: dict[str, Any], scrobbles_csv: Path) -> tuple[st
             s = existing_scrobbles["date"].dropna()
             # Try Last.fm display format first; if it fails, fall back to generic parser (ISO, etc.)
             try:
-                dt = pd.to_datetime(s, format="%d %b %Y, %H:%M", utc=True, errors="raise")
+                dt = pd.to_datetime(
+                    s, format="%d %b %Y, %H:%M", utc=True, errors="raise"
+                )
             except Exception:
                 dt = pd.to_datetime(s, utc=True, errors="coerce")
             latest_dt = dt.max()
@@ -68,7 +74,11 @@ def _resolve_window(cfg_lastfm: dict[str, Any], scrobbles_csv: Path) -> tuple[st
     if resolved_to_unix is None:
         resolved_to_unix = str(int(datetime.now(timezone.utc).timestamp()))
 
-    logger.info("Resolved window: from_unix=%s | to_unix=%s", resolved_from_unix, resolved_to_unix)
+    logger.info(
+        "Resolved window: from_unix=%s | to_unix=%s",
+        resolved_from_unix,
+        resolved_to_unix,
+    )
     return resolved_from_unix, resolved_to_unix
 
 
@@ -89,14 +99,14 @@ def run_incremental(
     curated_dir.mkdir(parents=True, exist_ok=True)
 
     scrobbles_csv = curated_dir / cfg_lastfm["outputs"]["scrobbles_csv"]
-    artists_csv   = curated_dir / cfg_lastfm["outputs"]["artists_csv"]
-    tracks_csv    = curated_dir / cfg_lastfm["outputs"]["tracks_csv"]
-    albums_csv    = curated_dir / cfg_lastfm["outputs"]["albums_csv"]
+    artists_csv = curated_dir / cfg_lastfm["outputs"]["artists_csv"]
+    tracks_csv = curated_dir / cfg_lastfm["outputs"]["tracks_csv"]
+    albums_csv = curated_dir / cfg_lastfm["outputs"]["albums_csv"]
 
-    batch_size   = cfg_lastfm["batch_size"]
-    page_size    = cfg_lastfm["page_size"]
-    page_limit   = cfg_lastfm["page_limit"]
-    sleep_secs   = cfg_lastfm["courtesy_sleep_secs"]
+    batch_size = cfg_lastfm["batch_size"]
+    page_size = cfg_lastfm["page_size"]
+    page_limit = cfg_lastfm["page_limit"]
+    sleep_secs = cfg_lastfm["courtesy_sleep_secs"]
 
     # Resolve from/to window if not provided
     from_unix, to_unix = _resolve_window(cfg_lastfm, scrobbles_csv)
@@ -123,7 +133,9 @@ def run_incremental(
         if not df_batch.empty:
             write_csv(scrobbles_csv, df_batch, append=scrobbles_csv.exists())
             written["n"] += len(df_batch)
-            logger.info(f"Scrobbles appended: {len(df_batch)} rows (total {written['n']})")
+            logger.info(
+                f"Scrobbles appended: {len(df_batch)} rows (total {written['n']})"
+            )
 
     api.extract_tracks(
         from_unix=from_unix,
@@ -166,20 +178,26 @@ def run_incremental(
             if idx % batch_size == 0:
                 df_artist = pd.DataFrame(artist_rows)
                 write_csv(artists_csv, df_artist, append=artists_csv.exists())
-                logger.info(f"Artists appended ({len(df_artist)} rows). Progress: {idx}/{total_artists}")
+                logger.info(
+                    f"Artists appended ({len(df_artist)} rows). Progress: {idx}/{total_artists}"
+                )
                 artist_rows.clear()
 
         if artist_rows:
             df_artist = pd.DataFrame(artist_rows)
             write_csv(artists_csv, df_artist, append=artists_csv.exists())
-            logger.info(f"Artists appended ({len(df_artist)} rows). Progress: {total_artists}/{total_artists}")
+            logger.info(
+                f"Artists appended ({len(df_artist)} rows). Progress: {total_artists}/{total_artists}"
+            )
 
     # 3) Tracks (missing only)
     logger.info("Step 3/4: extracting missing track info")
 
     if tracks_csv.exists():
         existing_tracks = read_csv(tracks_csv, safe=True)
-        existing_tracks = existing_tracks.rename(columns={"artist": "artist_name", "name": "track_name"})
+        existing_tracks = existing_tracks.rename(
+            columns={"artist": "artist_name", "name": "track_name"}
+        )
     else:
         existing_tracks = pd.DataFrame(columns=["artist_name", "track_name"])
 
@@ -203,29 +221,38 @@ def run_incremental(
         logger.info(f"Track pairs to fetch: {total_tracks}")
         # print(track_pairs)
 
-        for idx, (artist_name, track_name) in enumerate(track_pairs.itertuples(index=False), start=1):
+        for idx, (artist_name, track_name) in enumerate(
+            track_pairs.itertuples(index=False), start=1
+        ):
             track_info = api.fetch_track_info(artist=artist_name, track=track_name)
             track_rows.append(track_info)
-
 
             if idx % batch_size == 0:
                 df_track = pd.DataFrame(track_rows)
                 write_csv(tracks_csv, df_track, append=tracks_csv.exists())
-                logger.info(f"Tracks appended ({len(df_track)} rows). Progress: {idx}/{total_tracks}")
+                logger.info(
+                    f"Tracks appended ({len(df_track)} rows). Progress: {idx}/{total_tracks}"
+                )
                 track_rows.clear()
 
         if track_rows:
             df_track = pd.DataFrame(track_rows)
             write_csv(tracks_csv, df_track, append=tracks_csv.exists())
-            logger.info(f"Tracks appended ({len(df_track)} rows). Progress: {total_tracks}/{total_tracks}")
+            logger.info(
+                f"Tracks appended ({len(df_track)} rows). Progress: {total_tracks}/{total_tracks}"
+            )
 
     # 4) Albums (missing only)
     logger.info("Step 4/4: extracting missing album info")
 
     if albums_csv.exists():
-        existing_albums = read_csv(albums_csv, usecols=["artist_name", "album_name", "track_name"], safe=True)
+        existing_albums = read_csv(
+            albums_csv, usecols=["artist_name", "album_name", "track_name"], safe=True
+        )
     else:
-        existing_albums = pd.DataFrame(columns=["artist_name", "album_name", "track_name"])
+        existing_albums = pd.DataFrame(
+            columns=["artist_name", "album_name", "track_name"]
+        )
 
     album_pairs = (
         scrobbles_df[["artist_name", "album_name"]]
@@ -246,7 +273,9 @@ def run_incremental(
         total_albums = len(album_pairs)
         logger.info(f"Album pairs to fetch: {total_albums}")
 
-        for idx, (artist_name, album_name) in enumerate(album_pairs.itertuples(index=False), start=1):
+        for idx, (artist_name, album_name) in enumerate(
+            album_pairs.itertuples(index=False), start=1
+        ):
             # fetch_album_info returns a list of per-track dicts for that album
             rows_for_album = api.fetch_album_info(artist=artist_name, album=album_name)
             album_rows.append(rows_for_album)
@@ -254,10 +283,14 @@ def run_incremental(
             if idx % batch_size == 0:
                 df_album = pd.DataFrame(album_rows)
                 write_csv(albums_csv, df_album, append=albums_csv.exists())
-                logger.info(f"Albums appended ({len(df_album)} rows). Progress: {idx}/{total_albums}")
+                logger.info(
+                    f"Albums appended ({len(df_album)} rows). Progress: {idx}/{total_albums}"
+                )
                 album_rows.clear()
 
         if album_rows:
             df_album = pd.DataFrame(album_rows)
             write_csv(albums_csv, df_album, append=albums_csv.exists())
-            logger.info(f"Albums appended ({len(df_album)} rows). Progress: {total_albums}/{total_albums}")
+            logger.info(
+                f"Albums appended ({len(df_album)} rows). Progress: {total_albums}/{total_albums}"
+            )

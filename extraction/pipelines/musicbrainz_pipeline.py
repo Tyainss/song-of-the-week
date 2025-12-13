@@ -19,7 +19,10 @@ COLUMNS_ORDER = [
     "mb_artist_career_ended",
 ]
 
-def _dedupe_missing_by_mbid(artists_csv: Path, candidates: pd.DataFrame) -> pd.DataFrame:
+
+def _dedupe_missing_by_mbid(
+    artists_csv: Path, candidates: pd.DataFrame
+) -> pd.DataFrame:
     """
     Return unique artist_mbid values in candidates that are not yet present in artists_csv.
     """
@@ -29,14 +32,17 @@ def _dedupe_missing_by_mbid(artists_csv: Path, candidates: pd.DataFrame) -> pd.D
             candidates[["artist_mbid"]]
             .dropna()
             .drop_duplicates()
-            .merge(existing.drop_duplicates(), on=["artist_mbid"], how="left", indicator=True)
+            .merge(
+                existing.drop_duplicates(),
+                on=["artist_mbid"],
+                how="left",
+                indicator=True,
+            )
             .query('_merge == "left_only"')
             .drop(columns=["_merge"])
         )
         return missing
     return candidates[["artist_mbid"]].dropna().drop_duplicates()
-
-
 
 
 def run_incremental(
@@ -63,9 +69,11 @@ def run_incremental(
     batch_size = cfg_mb["batch_size"]
 
     # Base candidates from scrobbles
-    sc = read_csv(scrobbles_csv, usecols=["artist_name", "artist_mbid"], safe=True).drop_duplicates()
+    sc = read_csv(
+        scrobbles_csv, usecols=["artist_name", "artist_mbid"], safe=True
+    ).drop_duplicates()
 
-    # 1) Missing by MBID
+    # Missing by MBID
     logger.info("MB Step 1/2: fetching artists by MBID")
     mbid_missing = _dedupe_missing_by_mbid(artists_csv, sc)
     total_mbid = len(mbid_missing.index)
@@ -76,7 +84,11 @@ def run_incremental(
         for idx, mbid in enumerate(mbid_missing["artist_mbid"].tolist(), start=1):
             info = api.fetch_artist_info_by_mbid(mbid)
             # preserve artist_name if available from scrobbles for traceability
-            name = sc.loc[sc["artist_mbid"] == mbid, "artist_name"].iloc[0] if not sc.loc[sc["artist_mbid"] == mbid].empty else None
+            name = (
+                sc.loc[sc["artist_mbid"] == mbid, "artist_name"].iloc[0]
+                if not sc.loc[sc["artist_mbid"] == mbid].empty
+                else None
+            )
             info["artist_name"] = name
             rows.append(info)
 
@@ -85,11 +97,15 @@ def run_incremental(
                 # enforce exact schema/order (drop anything extra)
                 df = df.reindex(columns=COLUMNS_ORDER)
                 write_csv(artists_csv, df, append=artists_csv.exists())
-                logger.info(f"Artists (MBID) appended ({len(df)} rows). Progress: {idx}/{total_mbid}")
+                logger.info(
+                    f"Artists (MBID) appended ({len(df)} rows). Progress: {idx}/{total_mbid}"
+                )
                 rows.clear()
 
         if rows:
             df = pd.DataFrame(rows)
             df = df.reindex(columns=COLUMNS_ORDER)
             write_csv(artists_csv, df, append=artists_csv.exists())
-            logger.info(f"Artists (MBID) appended ({len(df)} rows). Progress: {total_mbid}/{total_mbid}")
+            logger.info(
+                f"Artists (MBID) appended ({len(df)} rows). Progress: {total_mbid}/{total_mbid}"
+            )

@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 # ===========================
-# Weekly base (from row-level scrobbles)
+# Weekly base
 # ===========================
 def build_weekly_base(df):
     """
@@ -28,20 +28,32 @@ def build_weekly_base(df):
 
     agg_week = (
         df.groupby(group_keys, sort=False)
-          .agg(
-              scrobbles_week=("__ts", "size"),
-              unique_days_week=("__day", pd.Series.nunique),
-              scrobbles_last_fri_sat=("__dow", lambda s: int(((s == 4) | (s == 5)).sum())),
-              scrobbles_saturday=("__dow", lambda s: int((s == 5).sum())),
-          )
-          .reset_index()
+        .agg(
+            scrobbles_week=("__ts", "size"),
+            unique_days_week=("__day", pd.Series.nunique),
+            scrobbles_last_fri_sat=(
+                "__dow",
+                lambda s: int(((s == 4) | (s == 5)).sum()),
+            ),
+            scrobbles_saturday=("__dow", lambda s: int((s == 5).sum())),
+        )
+        .reset_index()
     )
 
     # last scrobble within week → gap to Saturday 23:59:59
-    last_ts = df.groupby(group_keys, sort=False)["__ts"].max().rename("__last_ts").reset_index()
+    last_ts = (
+        df.groupby(group_keys, sort=False)["__ts"]
+        .max()
+        .rename("__last_ts")
+        .reset_index()
+    )
     wk_end = df[group_keys + ["__wk_end"]].drop_duplicates()
-    agg_week = agg_week.merge(last_ts, on=group_keys, how="left").merge(wk_end, on=group_keys, how="left")
-    agg_week["last_scrobble_gap_days"] = (agg_week["__wk_end"] - agg_week["__last_ts"]).dt.total_seconds() / 86400.0
+    agg_week = agg_week.merge(last_ts, on=group_keys, how="left").merge(
+        wk_end, on=group_keys, how="left"
+    )
+    agg_week["last_scrobble_gap_days"] = (
+        agg_week["__wk_end"] - agg_week["__last_ts"]
+    ).dt.total_seconds() / 86400.0
 
     # Sanity: this should never be negative (would imply scrobbles after the computed week end)
     neg_gap = agg_week["last_scrobble_gap_days"] < 0
@@ -66,22 +78,35 @@ def build_weekly_base(df):
 
     requested_carry = [
         # IDs / keys (for EDA & traceability; will be dropped for modeling)
-        "track_mbid", "artist_mbid", "album_mbid",
-        "track_key", "artist_key", "album_key",
+        "track_mbid",
+        "artist_mbid",
+        "album_mbid",
+        "track_key",
+        "artist_key",
+        "album_key",
         "spotify_track_id",
         # static facts / genres / popularity
         "track_duration",
-        "spotify_release_date", "release_date_granularity",
-        "spotify_genres", "genre_bucket", "genre_missing",
+        "spotify_release_date",
+        "release_date_granularity",
+        "spotify_genres",
+        "genre_bucket",
+        "genre_missing",
         "spotify_popularity",
         # listeners / playcounts (potentially leaky; kept for EDA, dropped for model)
-        "artist_listeners", "artist_playcount",
-        "album_listeners", "album_playcount",
+        "artist_listeners",
+        "artist_playcount",
+        "album_listeners",
+        "album_playcount",
         # data-quality flags
-        "date_was_missing", "added_at_utc_was_missing",
-        "week_saturday_utc_was_missing", "spotify_release_date_was_missing",
-        "artist_listeners_was_missing", "artist_playcount_was_missing",
-        "album_listeners_was_missing", "album_playcount_was_missing",
+        "date_was_missing",
+        "added_at_utc_was_missing",
+        "week_saturday_utc_was_missing",
+        "spotify_release_date_was_missing",
+        "artist_listeners_was_missing",
+        "artist_playcount_was_missing",
+        "album_listeners_was_missing",
+        "album_playcount_was_missing",
         "spotify_popularity_was_missing",
     ]
     carry_cols = [c for c in requested_carry if c in df.columns]
@@ -89,13 +114,18 @@ def build_weekly_base(df):
         df_sorted = df.sort_values(["artist_name", "track_name", "__wk", "__ts"])
         meta = (
             df_sorted[group_keys + carry_cols + ["__ts"]]
-            .sort_values(["artist_name", "track_name", "week_saturday_utc", "__ts"], ascending=True)
+            .sort_values(
+                ["artist_name", "track_name", "week_saturday_utc", "__ts"],
+                ascending=True,
+            )
             .drop_duplicates(subset=group_keys, keep="last")
             .drop(columns=["__ts"])
         )
         agg_week = agg_week.merge(meta, on=group_keys, how="left")
 
-    agg_week["week_saturday_dt"] = pd.to_datetime(agg_week["week_saturday_utc"], utc=True, errors="coerce")
+    agg_week["week_saturday_dt"] = pd.to_datetime(
+        agg_week["week_saturday_utc"], utc=True, errors="coerce"
+    )
 
     ordered = [
         "artist_name",
@@ -119,16 +149,16 @@ def build_weekly_base(df):
 
 # ===========================
 # Single-column helpers
-# (each helper adds exactly one column)
 # ===========================
+
 
 # ---- Within-week competition ----
 def add_within_week_rank_by_scrobbles(df):
     df = df.copy()
     df["within_week_rank_by_scrobbles"] = (
         df.groupby("week_saturday_utc")["scrobbles_week"]
-          .rank(method="dense", ascending=False)
-          .astype("Int64")
+        .rank(method="dense", ascending=False)
+        .astype("Int64")
     )
     return df
 
@@ -139,7 +169,9 @@ def add_scrobbles_prev_w(df, window: int, col_name: str = None):
     Adds scrobbles_prev_{w}w computed as the sum of the previous `window` weeks
     (strict look-back). For window=1, this is just the previous week's value.
     """
-    df = df.copy().sort_values(["artist_name", "track_name", "week_saturday_dt"], kind="stable")
+    df = df.copy().sort_values(
+        ["artist_name", "track_name", "week_saturday_dt"], kind="stable"
+    )
     g = df.groupby(["artist_name", "track_name"], sort=False, group_keys=False)
     if window <= 0:
         raise ValueError("window must be >= 1")
@@ -148,7 +180,9 @@ def add_scrobbles_prev_w(df, window: int, col_name: str = None):
     if window == 1:
         prev = series.fillna(0).astype("Int64")
     else:
-        prev = series.rolling(window=window, min_periods=1).sum().fillna(0).astype("Int64")
+        prev = (
+            series.rolling(window=window, min_periods=1).sum().fillna(0).astype("Int64")
+        )
     name = col_name if col_name else f"scrobbles_prev_{window}w"
     df[name] = prev
     return df
@@ -157,8 +191,12 @@ def add_scrobbles_prev_w(df, window: int, col_name: str = None):
 def add_week_over_week_change(df):
     df = df.copy()
     if "scrobbles_prev_1w" not in df.columns:
-        raise ValueError("scrobbles_prev_1w must exist before calling add_week_over_week_change()")
-    df["week_over_week_change"] = (df["scrobbles_week"] - df["scrobbles_prev_1w"]).astype("Int64")
+        raise ValueError(
+            "scrobbles_prev_1w must exist before calling add_week_over_week_change()"
+        )
+    df["week_over_week_change"] = (
+        df["scrobbles_week"] - df["scrobbles_prev_1w"]
+    ).astype("Int64")
     return df
 
 
@@ -170,7 +208,9 @@ def add_momentum_ratio(df, window: int, col_name: str = None):
     df = df.copy()
     prev_col = f"scrobbles_prev_{window}w"
     if prev_col not in df.columns:
-        raise ValueError(f"{prev_col} must exist before calling add_momentum_ratio(window={window})")
+        raise ValueError(
+            f"{prev_col} must exist before calling add_momentum_ratio(window={window})"
+        )
     name = col_name if col_name else f"momentum_{window}w_ratio"
     df[name] = df["scrobbles_week"] / (1.0 + df[prev_col].astype(float))
     return df
@@ -178,7 +218,9 @@ def add_momentum_ratio(df, window: int, col_name: str = None):
 
 # ---- History & novelty ----
 def add_prior_scrobbles_all_time(df):
-    df = df.copy().sort_values(["artist_name", "track_name", "week_saturday_dt"], kind="stable")
+    df = df.copy().sort_values(
+        ["artist_name", "track_name", "week_saturday_dt"], kind="stable"
+    )
     g = df.groupby(["artist_name", "track_name"], sort=False)
     # prior = cumulative sum up to previous row within each track
     csum = g["scrobbles_week"].transform("cumsum")
@@ -187,11 +229,15 @@ def add_prior_scrobbles_all_time(df):
 
 
 def add_prior_weeks_with_scrobbles(df):
-    df = df.copy().sort_values(["artist_name", "track_name", "week_saturday_dt"], kind="stable")
+    df = df.copy().sort_values(
+        ["artist_name", "track_name", "week_saturday_dt"], kind="stable"
+    )
     g = df.groupby(["artist_name", "track_name"], sort=False)
     # cumulative count of weeks with ≥1 scrobble, excluding current week
     pos = (df["scrobbles_week"] > 0).astype(int)
-    cum_pos = g[["scrobbles_week"]].transform(lambda s: (s > 0).astype(int).cumsum())["scrobbles_week"]
+    cum_pos = g[["scrobbles_week"]].transform(lambda s: (s > 0).astype(int).cumsum())[
+        "scrobbles_week"
+    ]
     df["prior_weeks_with_scrobbles"] = (cum_pos - pos).astype("Int64")
     return df
 
@@ -199,13 +245,17 @@ def add_prior_weeks_with_scrobbles(df):
 def add_first_seen_week(df):
     df = df.copy()
     if "prior_scrobbles_all_time" not in df.columns:
-        raise ValueError("prior_scrobbles_all_time must exist before calling add_first_seen_week()")
+        raise ValueError(
+            "prior_scrobbles_all_time must exist before calling add_first_seen_week()"
+        )
     df["first_seen_week"] = (df["prior_scrobbles_all_time"] == 0).astype(int)
     return df
 
 
 def add_weeks_since_first_scrobble(df):
-    df = df.copy().sort_values(["artist_name", "track_name", "week_saturday_dt"], kind="stable")
+    df = df.copy().sort_values(
+        ["artist_name", "track_name", "week_saturday_dt"], kind="stable"
+    )
     g = df.groupby(["artist_name", "track_name"], sort=False)
     first_week_dt = g["week_saturday_dt"].transform("min")
     delta_days = (df["week_saturday_dt"] - first_week_dt).dt.days
@@ -273,7 +323,9 @@ def add_days_since_release(df, release_lookup=None):
 
     key = ["artist_name", "track_name"]
     out = df.merge(release_lookup, on=key, how="left")
-    out["days_since_release"] = (out["week_saturday_dt"] - out["__release_dt"]).dt.total_seconds() / 86400.0
+    out["days_since_release"] = (
+        out["week_saturday_dt"] - out["__release_dt"]
+    ).dt.total_seconds() / 86400.0
 
     # Sanity: "days since release" should not be negative.
     neg = out["days_since_release"] < 0
@@ -291,7 +343,9 @@ def add_released_within_d(df, days: int = 28):
     """
     df = df.copy()
     if "days_since_release" not in df.columns:
-        raise ValueError("days_since_release must exist before calling add_released_within_d()")
+        raise ValueError(
+            "days_since_release must exist before calling add_released_within_d()"
+        )
     cond = (df["days_since_release"] >= 0) & (df["days_since_release"] <= days)
     df[f"released_within_{days}d"] = cond.fillna(False).astype(int)
     return df
@@ -329,7 +383,7 @@ def add_release_family(df):
 
 
 # ===========================
-# Core V1 composition (no I/O)
+# Core V1 composition
 # ===========================
 def compute_core_v1_features(weekly_df):
     """

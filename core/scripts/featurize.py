@@ -47,7 +47,9 @@ def run(repo_root: Path) -> dict[str, Path]:
     # Persist the modeling view (keeps keys & potentially leaky cols for audits)
     weekly_for_model_path = features_dir / "weekly_for_model.csv"
     write_csv(weekly_for_model_path, weekly_for_model, append=False)
-    logger.info(f"Wrote weekly_for_model.csv ({len(weekly_for_model)}) -> {weekly_for_model_path}")
+    logger.info(
+        f"Wrote weekly_for_model.csv ({len(weekly_for_model)}) -> {weekly_for_model_path}"
+    )
 
     # # Build X, y
     # X, y = make_X_y(weekly_for_model)
@@ -58,8 +60,8 @@ def run(repo_root: Path) -> dict[str, Path]:
     # logger.info(f"Wrote X.csv {tuple(X.shape)} and y.csv {tuple(y.shape)} in {features_dir}")
 
     return {
-        "weekly_for_model": weekly_for_model_path, 
-        # "X": X_path, 
+        "weekly_for_model": weekly_for_model_path,
+        # "X": X_path,
         # "y": y_path
     }
 

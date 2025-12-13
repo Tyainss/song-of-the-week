@@ -1,10 +1,10 @@
-
 import os
 from pathlib import Path
 from typing import Any, Dict
 
 import yaml
 from dotenv import load_dotenv
+
 
 class ConfigManager:
     """
@@ -14,7 +14,7 @@ class ConfigManager:
     def __init__(self, repo_root: Path) -> None:
         self.root = Path(repo_root).resolve()
         self.config_dir = self.root / "configs"
-        # Load .env from repo root (OS env vars keep precedence)
+        # Load .env from repo root
         load_dotenv(self.root / ".env", override=False)
         if not self.config_dir.is_dir():
             raise FileNotFoundError(f"Configs directory not found: {self.config_dir}")
@@ -34,7 +34,7 @@ class ConfigManager:
     def musicbrainz(self) -> Dict[str, Any]:
         """Return configs/musicbrainz.yaml as a dict."""
         return self._load_yaml(self.config_dir / "musicbrainz.yaml")
-    
+
     def spotify(self) -> Dict[str, Any]:
         """Return configs/spotify.yaml as a dict."""
         return self._load_yaml(self.config_dir / "spotify.yaml")
@@ -46,7 +46,9 @@ class ConfigManager:
         """
         return self._load_yaml(self.config_dir / name)
 
-    def env(self, key: str, default: str | None = None, *, required: bool = False) -> str | None:
+    def env(
+        self, key: str, default: str | None = None, *, required: bool = False
+    ) -> str | None:
         """
         Read environment variables (for secrets).
         - If required=True and the variable is missing, raises RuntimeError.
@@ -79,5 +81,5 @@ class ConfigManager:
             data = yaml.safe_load(f)
         if not isinstance(data, dict):
             raise ValueError(f"Config must be a YAML mapping (dict): {path}")
-        
+
         return data

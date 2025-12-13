@@ -1,4 +1,3 @@
-
 import logging
 import time
 import base64
@@ -73,15 +72,19 @@ class SpotifyAPI:
                     self.token_expires_at = time.time() + expires_in
                     return
                 elif resp.status_code == 502:
-                    wait_time = 2 ** attempt
-                    logger.info(f"Spotify auth 502. Retrying in {wait_time}s (attempt {attempt+1}).")
+                    wait_time = 2**attempt
+                    logger.info(
+                        f"Spotify auth 502. Retrying in {wait_time}s (attempt {attempt+1})."
+                    )
                     time.sleep(wait_time)
                 else:
                     logger.error(f"Spotify auth failed: {resp.status_code} {resp.text}")
                     break
             except requests.ConnectionError as e:
-                wait_time = 2 ** attempt
-                logger.info(f"Spotify auth connection error: {e}. Retrying in {wait_time}s (attempt {attempt+1}).")
+                wait_time = 2**attempt
+                logger.info(
+                    f"Spotify auth connection error: {e}. Retrying in {wait_time}s (attempt {attempt+1})."
+                )
                 time.sleep(wait_time)
             except Exception as e:
                 logger.error(f"Spotify auth unexpected error: {e}")
@@ -100,7 +103,9 @@ class SpotifyAPI:
         max_attempts = 5
         for attempt in range(max_attempts):
             try:
-                resp = self.session.get(url, headers=headers, params=params or {}, timeout=self.timeout_secs)
+                resp = self.session.get(
+                    url, headers=headers, params=params or {}, timeout=self.timeout_secs
+                )
 
                 # polite sleep for burst control
                 if self.sleep_secs:
@@ -114,15 +119,19 @@ class SpotifyAPI:
                             f"Spotify 429 with Retry-After={retry_after}s exceeds cap "
                             f"({self.max_retry_after_secs}s). Stopping so you can resume later."
                         )
-                        raise RuntimeError("Rate limit window too long; aborting current run.")
+                        raise RuntimeError(
+                            "Rate limit window too long; aborting current run."
+                        )
                     logger.info(f"Spotify 429. Sleeping {retry_after}s and retrying.")
                     time.sleep(retry_after)
                     continue
 
                 # transient server errors
                 if resp.status_code in (502, 503, 504):
-                    wait_time = 2 ** attempt
-                    logger.info(f"Spotify {resp.status_code}. Retrying in {wait_time}s (attempt {attempt+1}).")
+                    wait_time = 2**attempt
+                    logger.info(
+                        f"Spotify {resp.status_code}. Retrying in {wait_time}s (attempt {attempt+1})."
+                    )
                     time.sleep(wait_time)
                     continue
 
@@ -134,11 +143,15 @@ class SpotifyAPI:
                     return {}
 
                 # other errors -> raise
-                raise RuntimeError(f"Spotify GET {path} failed: {resp.status_code} {resp.text}")
+                raise RuntimeError(
+                    f"Spotify GET {path} failed: {resp.status_code} {resp.text}"
+                )
 
             except requests.ConnectionError as e:
-                wait_time = 2 ** attempt
-                logger.info(f"Spotify connection error: {e}. Retrying in {wait_time}s (attempt {attempt+1}).")
+                wait_time = 2**attempt
+                logger.info(
+                    f"Spotify connection error: {e}. Retrying in {wait_time}s (attempt {attempt+1})."
+                )
                 time.sleep(wait_time)
 
         raise RuntimeError(f"Max retries exceeded for Spotify GET {path}.")
@@ -224,7 +237,9 @@ class SpotifyAPI:
         page = 0
         while True:
             page += 1
-            data = self._get(f"playlists/{playlist_id}/tracks", {"limit": limit, "offset": offset})
+            data = self._get(
+                f"playlists/{playlist_id}/tracks", {"limit": limit, "offset": offset}
+            )
             items = data.get("items", []) or []
             for it in items:
                 yield it

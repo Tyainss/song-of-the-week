@@ -1,4 +1,3 @@
-
 import argparse
 import logging
 import pickle
@@ -32,6 +31,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------
 # Helpers
 # ---------------------------
+
 
 def _time_based_split(
     df: pd.DataFrame,
@@ -116,7 +116,9 @@ def _build_X_y(
     )
 
     # Feature columns (Core V1 + released_within_*d + genre__*)
-    feat_cols = select_feature_columns(pd.concat([df_train_ohe, df_val_ohe, df_test_ohe], axis=0))
+    feat_cols = select_feature_columns(
+        pd.concat([df_train_ohe, df_val_ohe, df_test_ohe], axis=0)
+    )
 
     def _XY(df_ohe: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
         X_df = df_ohe[feat_cols].copy()
@@ -208,6 +210,7 @@ def _compute_holdout_metrics(
 # ---------------------------
 # Main training routine
 # ---------------------------
+
 
 def run(repo_root: Path) -> Path:
     """

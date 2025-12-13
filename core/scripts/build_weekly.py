@@ -14,6 +14,7 @@ from core.features.aggregations import (
 
 logger = logging.getLogger(__name__)
 
+
 def _log_weekly_sanity_checks(df: pd.DataFrame) -> None:
     """
     Lightweight invariants to catch data/logic issues early.
@@ -31,10 +32,14 @@ def _log_weekly_sanity_checks(df: pd.DataFrame) -> None:
     ]
     for c in nonneg_cols:
         if c in df.columns:
-            checks[f"{c}_neg_rows"] = int((pd.to_numeric(df[c], errors="coerce") < 0).sum())
+            checks[f"{c}_neg_rows"] = int(
+                (pd.to_numeric(df[c], errors="coerce") < 0).sum()
+            )
 
     if "unique_days_week" in df.columns:
-        checks["unique_days_week_gt_7_rows"] = int((pd.to_numeric(df["unique_days_week"], errors="coerce") > 7).sum())
+        checks["unique_days_week_gt_7_rows"] = int(
+            (pd.to_numeric(df["unique_days_week"], errors="coerce") > 7).sum()
+        )
 
     if {"scrobbles_last_fri_sat", "scrobbles_week"}.issubset(df.columns):
         a = pd.to_numeric(df["scrobbles_last_fri_sat"], errors="coerce")
@@ -51,6 +56,7 @@ def _log_weekly_sanity_checks(df: pd.DataFrame) -> None:
         logger.warning(f"Weekly sanity checks flagged potential issues: {bad}")
     else:
         logger.info("Weekly sanity checks passed (no obvious invariant violations).")
+
 
 def run(repo_root: Path) -> Path:
     cm = ConfigManager(repo_root)

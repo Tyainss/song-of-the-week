@@ -1,4 +1,3 @@
-
 import os
 import logging
 import pickle
@@ -61,6 +60,7 @@ class PredictMode(str, Enum):
     AUTO = "auto"
     SINGLE = "single"
     RANKING = "ranking"
+
 
 class Candidate(BaseModel):
     """
@@ -139,6 +139,7 @@ class Candidate(BaseModel):
         for field in MODEL_INPUT_FIELDS:
             row[field] = getattr(self, field)
         return row
+
 
 class ExampleMetadata(BaseModel):
     """
@@ -227,6 +228,7 @@ class PredictionResponse(BaseModel):
     winner_index: int
     winner_candidate_id: Optional[str] = None
     results: List[TrackPrediction]
+
 
 class SpotifyTrack(BaseModel):
     """
@@ -322,6 +324,7 @@ def build_model_dataframe(candidates: List[Candidate]) -> pd.DataFrame:
 
     return df
 
+
 def spotify_track_to_candidate_template(
     track: SpotifyTrack,
 ) -> Candidate:
@@ -387,6 +390,7 @@ def _load_artifacts(repo_root: Path) -> Dict[str, Any]:
 
     return artifacts
 
+
 def _get_spotify_credentials() -> Dict[str, str]:
     """
     Load Spotify client credentials.
@@ -440,7 +444,9 @@ def _get_spotify_token() -> str:
     return SPOTIFY_TOKEN
 
 
-def _spotify_api_get(path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def _spotify_api_get(
+    path: str, params: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     Helper to call Spotify Web API (GET).
     """
@@ -450,10 +456,9 @@ def _spotify_api_get(path: str, params: Optional[Dict[str, Any]] = None) -> Dict
 
     resp = requests.get(url, headers=headers, params=params or {}, timeout=10)
     if resp.status_code != 200:
-        raise RuntimeError(
-            f"Spotify API error ({resp.status_code}): {resp.text}"
-        )
+        raise RuntimeError(f"Spotify API error ({resp.status_code}): {resp.text}")
     return resp.json()
+
 
 def _load_examples_df(repo_root: Path) -> pd.DataFrame:
     """
@@ -465,7 +470,7 @@ def _load_examples_df(repo_root: Path) -> pd.DataFrame:
         paths:
           weekly_dataset: "core/data/weekly_tracks.parquet"
 
-    You can adjust the config key/path as needed; this function centralizes
+    It can adjust the config key/path as needed; this function centralizes
     the loading logic so the rest of the code stays clean.
     """
     cm = ConfigManager(repo_root)
@@ -670,6 +675,7 @@ def predict(request: PredictionRequest) -> PredictionResponse:
         results=results,
     )
 
+
 def _row_to_example_candidate(
     row: pd.Series,
     source: CandidateSource,
@@ -708,9 +714,11 @@ def _row_to_example_candidate(
         track_name=candidate.track_name,
         artist_name=candidate.artist_name,
         week_start=candidate.week_start,
-        is_week_favorite=bool(row["is_week_favorite"])
-        if "is_week_favorite" in row and row["is_week_favorite"] is not None
-        else None,
+        is_week_favorite=(
+            bool(row["is_week_favorite"])
+            if "is_week_favorite" in row and row["is_week_favorite"] is not None
+            else None
+        ),
         spotify_track_id=candidate.spotify_track_id,
     )
 
@@ -780,6 +788,7 @@ def get_favorite_examples(count: int = 1) -> ExamplesResponse:
     ]
 
     return ExamplesResponse(candidates=examples)
+
 
 def _extract_spotify_track_id(raw_url: str) -> str:
     """

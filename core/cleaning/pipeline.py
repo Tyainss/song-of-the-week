@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from common.config_manager import ConfigManager
 from common.utils.io import read_csv, write_csv
@@ -13,6 +12,7 @@ from .cleaning_steps import (
     add_date_missing_flags,
     round_counts_to_int,
 )
+
 
 def run_pipeline():
     cm = ConfigManager(Path.cwd())
@@ -40,21 +40,30 @@ def run_pipeline():
     # We only use track_duration for duration. Others are kept but cleaned.
     numeric_cols = [
         "track_duration",
-        "artist_listeners", "artist_playcount",
-        "album_listeners", "album_playcount",
+        "artist_listeners",
+        "artist_playcount",
+        "album_listeners",
+        "album_playcount",
         "spotify_popularity",
     ]
     df = to_numeric(df, numeric_cols)
 
     # Fill selected with median + add flags
     fill_cols = [
-        "artist_listeners", "artist_playcount",
-        "album_listeners", "album_playcount",
+        "artist_listeners",
+        "artist_playcount",
+        "album_listeners",
+        "album_playcount",
         "spotify_popularity",
     ]
     df = fill_with_median_and_flag(df, fill_cols)
 
-    count_cols = ["artist_listeners", "artist_playcount", "album_listeners", "album_playcount"]
+    count_cols = [
+        "artist_listeners",
+        "artist_playcount",
+        "album_listeners",
+        "album_playcount",
+    ]
     df = round_counts_to_int(df, count_cols)
 
     # Keep only track_duration (seconds); drop spotify_duration_ms if present

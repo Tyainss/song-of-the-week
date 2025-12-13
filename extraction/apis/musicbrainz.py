@@ -60,7 +60,9 @@ class MusicBrainzAPI:
         country_1 = data.get("country", "")
         area = data.get("area")
         country_2 = area.get("iso-3166-1-codes", [""])[0] if area else None
-        country_name = helper.country_name_from_iso2(country_2 if country_2 else country_1)
+        country_name = helper.country_name_from_iso2(
+            country_2 if country_2 else country_1
+        )
 
         life_span = data.get("life-span", {})
         career_begin = helper.format_date(life_span.get("begin"))
@@ -83,11 +85,7 @@ class MusicBrainzAPI:
         """
         Resolve an artist MBID by name (first match).
         """
-        params = {
-            "query": f"artist:{artist_name}", 
-            "fmt": 
-            "json", "limit": 1
-        }
+        params = {"query": f"artist:{artist_name}", "fmt": "json", "limit": 1}
         data = self._get("artist", params=params)
         artists = data.get("artists") or []
         if not artists:
