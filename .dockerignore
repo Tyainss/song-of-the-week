@@ -40,4 +40,5 @@ extraction/data/
 
 # Processed / feature CSVs - training artifacts only
 core/data/processed/
-core/data/features/
+core/data/features/*
+!core/data/features/weekly_for_model.csv
