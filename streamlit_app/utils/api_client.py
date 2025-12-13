@@ -15,13 +15,6 @@ def _get_base_url() -> str:
     if env_url:
         return env_url.rstrip("/")
 
-    try:
-        secret_url = st.secrets.get("api_base_url")
-        if secret_url:
-            return str(secret_url).rstrip("/")
-    except Exception:
-        pass
-
     return DEFAULT_BASE_URL
 
 
