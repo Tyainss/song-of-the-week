@@ -470,7 +470,7 @@ def _load_examples_df(repo_root: Path) -> pd.DataFrame:
         paths:
           weekly_dataset: "core/data/weekly_tracks.parquet"
 
-    You can adjust the config key/path as needed; this function centralizes
+    It can adjust the config key/path as needed; this function centralizes
     the loading logic so the rest of the code stays clean.
     """
     cm = ConfigManager(repo_root)

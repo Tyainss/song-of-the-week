@@ -176,7 +176,7 @@ def run_incremental(
       1) Read scrobbles, build unique (artist_name, track_name).
       2) Dedupe against existing Spotify CSV.
       3) Fetch features/metadata in batches; append.
-      4) Optional: pull favorites playlist when configured.
+      4) Pull favorites playlist.
     """
     curated_dir.mkdir(parents=True, exist_ok=True)
 

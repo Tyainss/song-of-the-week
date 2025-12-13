@@ -73,7 +73,7 @@ def run_incremental(
         scrobbles_csv, usecols=["artist_name", "artist_mbid"], safe=True
     ).drop_duplicates()
 
-    # 1) Missing by MBID
+    # Missing by MBID
     logger.info("MB Step 1/2: fetching artists by MBID")
     mbid_missing = _dedupe_missing_by_mbid(artists_csv, sc)
     total_mbid = len(mbid_missing.index)
