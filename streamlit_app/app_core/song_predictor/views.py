@@ -24,7 +24,7 @@ def render_add_candidate_section():
                 label_visibility="collapsed",
                 key="spotify_url_input"
             )
-            if col2.button("Fetch", key="btn_add_spotify", use_container_width=True):
+            if col2.button("Fetch", key="btn_add_spotify", width='stretch'):
                 actions.handle_fetch_spotify_candidate(url)
 
         with tab_random:
@@ -70,7 +70,7 @@ def render_candidate_list():
             "id": c.get("candidate_id"),
             "Track": c.get("track_name", "Unknown"),
             "Artist": c.get("artist_name", "Unknown"),
-            "Prob": c.get("probability", 0.0) if c.get("probability") is not None else None,
+            "Prob": c.get("probability", 0.0) * 100 if c.get("probability") is not None else None,
             "Rank": c.get("rank"),
         })
     
@@ -85,8 +85,8 @@ def render_candidate_list():
         "id": None, 
         # Display with 2 decimal places
         "Prob": st.column_config.ProgressColumn(
-            "Confidence", format="%.2f%%", 
-            min_value=0, max_value=1
+            "Confidence", format="%.1f%%", 
+            min_value=0, max_value=100
         ),
     }
 
@@ -98,7 +98,7 @@ def render_candidate_list():
 
     event = st.dataframe(
         df,
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
         column_config=column_config,
         on_select="rerun",
@@ -137,7 +137,7 @@ def render_controls():
         is_ranking = mode_select == "Rank All"
         btn_label = "🏆 RANK ALL" if is_ranking else "🔎 CHECK SELECTED"
         
-        if st.button(btn_label, type="primary", use_container_width=True):
+        if st.button(btn_label, type="primary", width='stretch'):
             actions.handle_prediction(mode_select)
 
 def render_inspector_panel():
@@ -157,11 +157,11 @@ def render_inspector_panel():
         
         col_act1, col_act2 = st.columns(2)
         with col_act1:
-            if st.button("Duplicate", use_container_width=True, key="btn_insp_duplicate"):
+            if st.button("Duplicate", width='stretch', key="btn_insp_duplicate"):
                 state.duplicate_candidate(cand)
                 st.rerun()
         with col_act2:
-            if st.button("Remove", use_container_width=True, type="primary", key="btn_insp_remove"):
+            if st.button("Remove", width='stretch', type="primary", key="btn_insp_remove"):
                 state.remove_candidate(cid)
                 st.rerun()
 
