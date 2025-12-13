@@ -6,7 +6,7 @@ Every Saturday since `2021-01-02`, I pick a single **"Favourite Song of the Week
 
 > Can a model learn my listening patterns well enough to guess which favourite song I'll choose?
 
-![Song Predictor (Streamlit UI)](docs/screenshots/04_song_predictor_streamlit_ui.png)
+![Song Predictor (Streamlit UI)](docs/screenshots/03_song_predictor_streamlit_ui.png)
 
 *Song Predictor: draft candidates, inspect/edit features, and predict the weekly winner (Rank All) or evaluate a single pick (Check Selected).*
 
