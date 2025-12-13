@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,12 @@ def build_weekly_base(df):
     wk_end = df[group_keys + ["__wk_end"]].drop_duplicates()
     agg_week = agg_week.merge(last_ts, on=group_keys, how="left").merge(wk_end, on=group_keys, how="left")
     agg_week["last_scrobble_gap_days"] = (agg_week["__wk_end"] - agg_week["__last_ts"]).dt.total_seconds() / 86400.0
+
+    # Sanity: this should never be negative (would imply scrobbles after the computed week end)
+    neg_gap = agg_week["last_scrobble_gap_days"] < 0
+    agg_week["last_scrobble_gap_days_was_negative"] = neg_gap.fillna(False).astype(int)
+    if neg_gap.any():
+        agg_week.loc[neg_gap, "last_scrobble_gap_days"] = 0.0
 
     # label (if present)
     if "is_week_favorite" in df.columns:
@@ -267,6 +274,13 @@ def add_days_since_release(df, release_lookup=None):
     key = ["artist_name", "track_name"]
     out = df.merge(release_lookup, on=key, how="left")
     out["days_since_release"] = (out["week_saturday_dt"] - out["__release_dt"]).dt.total_seconds() / 86400.0
+
+    # Sanity: "days since release" should not be negative.
+    neg = out["days_since_release"] < 0
+    out["days_since_release_was_negative"] = neg.fillna(False).astype(int)
+    if neg.any():
+        out.loc[neg, "days_since_release"] = 0.0
+
     out = out.drop(columns=["__release_dt"])
     return out
 
