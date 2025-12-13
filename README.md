@@ -16,7 +16,7 @@ Every Saturday since `2021-01-02`, I pick a single **"Favourite Song of the Week
 ## At a glance
 
 - 🎯 **Goal**: Predict my weekly favourite song from historical listening history ([Last.fm](https://www.last.fm/user/Tyains)) and track metadata ([Spotify](https://open.spotify.com/user/tyains?si=19874d2d22e14af5)).
-- 🖥️ **Streamlit App**: --- INSERT PROD LINK ---
+- 🖥️ **Streamlit App**: https://song-of-the-week.streamlit.app/
 - 🌐 **Live API**: https://song-of-the-week.onrender.com/docs 
 - 🧠 **Models**:
   - Logistic Regression - **final production model**
