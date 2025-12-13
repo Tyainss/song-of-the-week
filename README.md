@@ -6,19 +6,26 @@ Every Saturday since `2021-01-02`, I pick a single **"Favourite Song of the Week
 
 > Can a model learn my listening patterns well enough to guess which favourite song I'll choose?
 
+![Song Predictor (Streamlit UI)](docs/screenshots/04_song_predictor_streamlit_ui.png)
+
+*Song Predictor: draft candidates, inspect/edit features, and predict the weekly winner (Rank All) or evaluate a single pick (Check Selected).*
+
+
 ---
 
 ## At a glance
 
 - 🎯 **Goal**: Predict my weekly favourite song from historical listening history ([Last.fm](https://www.last.fm/user/Tyains)) and track metadata ([Spotify](https://open.spotify.com/user/tyains?si=19874d2d22e14af5)).
+- 🖥️ **Streamlit App**: --- INSERT PROD LINK ---
 - 🌐 **Live API**: https://song-of-the-week.onrender.com/docs 
 - 🧠 **Models**:
   - Logistic Regression - **final production model**
   - XGBoost - explored but not selected
-- 🧩 **Stack**: Python, scikit-learn, FastAPI, uv, Docker, Render
+- 🧩 **Stack**: Python, scikit-learn, Streamlit, FastAPI, uv, Docker, Render
 - 🗂 **Repo layout (key parts)**:
   - `extraction/` – pulls data from Last.fm / Spotify / MusicBrainz and writes curated CSVs.
   - `core/` – cleaning, feature engineering, training (`core/scripts/train.py`) and API (`core/scripts/predict.py`).
+  - `streamlit_app/` – Song Predictor UI (candidate drafting, inspector, feature editor).
   - `notebooks/` – EDA and modeling experiments (`00_eda.ipynb`, `01_model_training.ipynb`).
   - `docs/` – screenshots and figures used in this README.
 
@@ -33,7 +40,14 @@ If you just want to see it working:
 
   - Open: https://song-of-the-week.onrender.com/docs
 
-    Note: Render's free tier can spin down after inactivity, so it make take a bit of time to start working.
+    Note: Render's free tier can spin down after inactivity, so it may take a bit of time to start working.
+
+- 🖥️ **Run the Song Predictor UI locally** (requires Python 3.12 + `uv`):
+
+  ```bash
+  uv sync
+  uv run streamlit run streamlit_app/app.py
+  ```
 
 - ▶️ **Run the API locally** (requires Python 3.12 + `uv`):
 
@@ -84,6 +98,11 @@ The deployed service can answer questions like:
 * _"Given these tracks for a specific week, which one should be the weekly favourite?"_
 * _"Is this single track a strong weekly favourite candidate on its own?"_
 
+The Song Predictor UI supports both interaction styles:
+
+* Rank All: rank the full candidate list and pick a winner.
+* Check Selected: evaluate a single track against the global threshold.
+
 ### Why this matters beyond this project
 
 This is a small, concrete instance of a broader class of problems:
@@ -125,7 +144,7 @@ The project uses three main data sources:
   * Look at listening activity around each Saturday.
   * If both sides are > 3 days away, use the previous Saturday.
   
-  _(I usually never miss a Saturday, but ocasionally only add the song 1-2 days afterwards)_
+  _(I usually never miss a Saturday, but occasionally only add the song 1-2 days afterwards)_
 * Only weeks on or after **`2021-01-02`** are used for modeling:
 
   * There is scrobble data before that date, but no "favourite of the week" labels.
@@ -471,6 +490,18 @@ song-of-the-week/
 ├─ notebooks/
 │  ├─ 00_eda.ipynb          # EDA + feature exploration
 │  └─ 01_model_training.ipynb
+├─ streamlit_app/           # Streamlit UI (Song Predictor)
+│  ├─ app.py                # Streamlit entrypoint
+│  ├─ pages/
+│  │  ├─ about.py
+│  │  └─ song_predictor.py
+│  ├─ app_core/
+│  │  └─ song_predictor/
+│  │     ├─ actions.py
+│  │     ├─ state.py
+│  │     └─ views.py
+│  ├─ utils/
+│  └─ logo/
 └─ docs/
    └─ screenshots/          # deployment / docs UI screenshots
 ```
@@ -811,8 +842,6 @@ This project was originally built as a mid-term project for the **ML Zoomcamp** 
 
 Some natural next steps:
 
-* Develop a Streamlit app with a better UI for user interaction with the model
-  * Include a way for users to access Spotify's API to get track info, like popularity & duration, as well as LastFM's API to extract scrobble info
 * Include more features in the Feature Engineering step
 * Extract extra relevant info from Spotify - Playlist with log of Live Shows seen for each artist, and the respective date of the show. (I sometimes choose as favorite track one of a concert I've seen live that week)
 
