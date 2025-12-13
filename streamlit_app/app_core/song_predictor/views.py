@@ -28,12 +28,12 @@ def render_add_candidate_section():
                 actions.handle_fetch_spotify_candidate(url)
 
         with tab_random:
-            st.caption("Pull a random non-favorite song from your listening history.")
+            st.caption("Pull a random non-favorite song from the listening history.")
             if st.button("Add Random Track", key="btn_add_rnd"):
                 actions.handle_add_random_example()
 
         with tab_fav:
-            st.caption("Pull a historical 'Song of the Week' from your dataset.")
+            st.caption("Pull a historical 'Song of the Week' from the playlist on the week it was chosen.")
             if st.button("Add Favorite Track", key="btn_add_fav"):
                 actions.handle_add_favorite_example()
 
@@ -237,13 +237,15 @@ def render_inspector_panel():
                 "Popularity", 
                 0, 
                 100, 
-                int(cand.get("spotify_popularity", 0))
+                int(cand.get("spotify_popularity", 0)),
+                help="**Spotify Popularity Score** (0-100)",
             )
             cand["track_duration"] = st.number_input(
                 "Duration (s)", 
                 min_value=0, 
                 value=int(cand.get("track_duration", 180)),
                 step=1,
+                help="Track duration in seconds",
                 key=f"dur_{cid}"
             )
         with c2:
@@ -252,6 +254,7 @@ def render_inspector_panel():
                 min_value=0, 
                 value=int(cand.get("days_since_release", 100)),
                 step=1,
+                help="Days from release to the selected week *(based on listening week, not today).*",
                 key=f"dsr_{cid}"
             )
             
@@ -268,6 +271,7 @@ def render_inspector_panel():
                 min_value=0, 
                 value=int(cand.get("scrobbles_week", 0)),
                 step=1, 
+                help="**Total plays** during the listening week.",
                 key=f"scrw_{cid}"
             )
             cand["unique_days_week"] = st.number_input(
@@ -276,6 +280,7 @@ def render_inspector_panel():
                 max_value=7, 
                 value=int(cand.get("unique_days_week", 0)),
                 step=1,
+                help="*Number of unique days** the track was played during the week.",
                 key=f"udw_{cid}"
             )
         with c2:
@@ -284,6 +289,7 @@ def render_inspector_panel():
                 min_value=1, 
                 value=int(cand.get("within_week_rank_by_scrobbles", 10)),
                 step=1,
+                help="**Rank of the track** by scrobbles within the listening week.",
                 key=f"wwr_{cid}"
             )
             cand["scrobbles_saturday"] = st.number_input(
@@ -291,6 +297,7 @@ def render_inspector_panel():
                 min_value=0, 
                 value=int(cand.get("scrobbles_saturday", 0)),
                 step=1,
+                help="Number of **plays on Saturday** of the listening week.",
                 key=f"scrsat_{cid}"
             )
         
@@ -299,6 +306,7 @@ def render_inspector_panel():
             min_value=0, 
             value=int(cand.get("scrobbles_last_fri_sat", 0)),
             step=1,
+            help="Number of **plays on Friday and Saturday** of the listening week.",
             key=f"scrfs_{cid}"
         )
 
@@ -311,6 +319,7 @@ def render_inspector_panel():
                 min_value=0, 
                 value=int(cand.get("scrobbles_prev_1w", 0)),
                 step=1,
+                help="Total **plays in the 1 week prior** to the listening week.",
                 key=f"scrp1_{cid}"
             )
             cand["scrobbles_prev_4w"] = st.number_input(
@@ -318,6 +327,7 @@ def render_inspector_panel():
                 min_value=0, 
                 value=int(cand.get("scrobbles_prev_4w", 0)),
                 step=1,
+                help="Total **plays in the 4 weeks prior** to the listening week.",
                 key=f"scrp4_{cid}"
             )
         with c2:
@@ -326,6 +336,7 @@ def render_inspector_panel():
                 min_value=0, 
                 value=int(cand.get("prior_scrobbles_all_time", 0)),
                 step=1,
+                help="**Total plays before** the listening week.",
                 key=f"scrat_{cid}"
             )
             # Retain float behavior for ratios originally set to float
@@ -333,6 +344,7 @@ def render_inspector_panel():
                 "Momentum (4w)", 
                 value=float(cand.get("momentum_4w_ratio", 0.0)),
                 step=0.1,
+                help="**4-Week Momentum Ratio** (Scrobbles in week / Scrobbles in prior 4 weeks).",
                 key=f"mom4w_{cid}"
             )
 
@@ -340,6 +352,7 @@ def render_inspector_panel():
             "WoW Change", 
             value=int(cand.get("week_over_week_change", 0)),
             step=1,
+            help="**Week-over-Week Change** in scrobbles (This week vs Last week).",
             key=f"wowc_{cid}"
         )
         cand["last_scrobble_gap_days"] = st.number_input(
@@ -347,5 +360,6 @@ def render_inspector_panel():
             min_value=0,
             value=int(cand.get("last_scrobble_gap_days", 0)),
             step=1,
+            help="Days since the track was last played before the listening week.",
             key=f"lsgd_{cid}"
         )
