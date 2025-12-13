@@ -1,4 +1,3 @@
-
 import json
 import pandas as pd
 from pathlib import Path
@@ -52,6 +51,7 @@ def read_csv(
             keep = [c for c in usecols if c in df.columns]
             return df[keep]
         return df
+
 
 def write_json(path: Path, data: dict, indent: int = 2) -> None:
     """

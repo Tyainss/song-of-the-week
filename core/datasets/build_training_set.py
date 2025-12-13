@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import logging
 import pandas as pd
@@ -27,9 +26,13 @@ def _load_inputs(config_manager, project_config):
     lastfm_tracks_path = curated_dir / lastfm_config["outputs"]["tracks_csv"]
     lastfm_artists_path = curated_dir / lastfm_config["outputs"]["artists_csv"]
     lastfm_albums_path = curated_dir / lastfm_config["outputs"]["albums_csv"]
-    musicbrainz_artists_path = curated_dir / musicbrainz_config["outputs"]["artists_csv"]
+    musicbrainz_artists_path = (
+        curated_dir / musicbrainz_config["outputs"]["artists_csv"]
+    )
     spotify_tracks_path = curated_dir / spotify_config["outputs"]["tracks_csv"]
-    spotify_favorites_path = curated_dir / spotify_config["outputs"].get("favorites_csv", "")
+    spotify_favorites_path = curated_dir / spotify_config["outputs"].get(
+        "favorites_csv", ""
+    )
 
     if not lastfm_scrobbles_path.exists():
         logger.info(f"No scrobbles found at {lastfm_scrobbles_path}. Nothing to build.")
@@ -61,17 +64,21 @@ def _normalize_join_keys(frames):
                 frame[column] = frame[column].astype(str)
     return frames
 
+
 def _make_key(s):
     # Canonical string for joins: Unicode-normalized, trimmed, single-spaced, casefolded.
     return (
         s.astype(str)
-         .str.normalize("NFKC")
-         .str.strip()
-         .str.replace(r"\s+", " ", regex=True)
-         .str.casefold()
+        .str.normalize("NFKC")
+        .str.strip()
+        .str.replace(r"\s+", " ", regex=True)
+        .str.casefold()
     )
 
-def _add_name_keys(df, artist_col="artist_name", track_col="track_name", album_col="album_name"):
+
+def _add_name_keys(
+    df, artist_col="artist_name", track_col="track_name", album_col="album_name"
+):
     # Adds artist_key / track_key / album_key if source columns exist. Original columns preserved.
     if artist_col in df.columns:
         df["artist_key"] = _make_key(df[artist_col])
@@ -80,6 +87,7 @@ def _add_name_keys(df, artist_col="artist_name", track_col="track_name", album_c
     if album_col in df.columns:
         df["album_key"] = _make_key(df[album_col])
     return df
+
 
 def _anchor_scrobbles_week(scrobbles_df):
     if "date" not in scrobbles_df.columns:
@@ -90,11 +98,16 @@ def _anchor_scrobbles_week(scrobbles_df):
     days_until_sat = (5 - weekday) % 7
     next_sat = ts + pd.to_timedelta(days_until_sat, unit="D")
     scrobbles_df["week_saturday_utc"] = (
-        next_sat.dt.tz_convert("UTC").dt.tz_localize(None).dt.strftime("%Y-%m-%d 00:00:00")
+        next_sat.dt.tz_convert("UTC")
+        .dt.tz_localize(None)
+        .dt.strftime("%Y-%m-%d 00:00:00")
     )
     return scrobbles_df
 
-def _merge_lastfm_tracks(unified_df: pd.DataFrame, lastfm_tracks_df: pd.DataFrame) -> pd.DataFrame:
+
+def _merge_lastfm_tracks(
+    unified_df: pd.DataFrame, lastfm_tracks_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     Join Last.fm track-level info
     """
@@ -104,8 +117,9 @@ def _merge_lastfm_tracks(unified_df: pd.DataFrame, lastfm_tracks_df: pd.DataFram
     right = lastfm_tracks_df.drop_duplicates(subset=["artist_key", "track_key"])
     # Keep join keys + columns not already present on the left, and drop raw display cols
     drop_names = {"artist_name", "track_name", "album_name"}
-    right_cols = list(need) + [c for c in right.columns
-                               if c not in unified_df.columns and c not in drop_names]
+    right_cols = list(need) + [
+        c for c in right.columns if c not in unified_df.columns and c not in drop_names
+    ]
     right = right[right_cols]
     return unified_df.merge(
         right,
@@ -115,7 +129,9 @@ def _merge_lastfm_tracks(unified_df: pd.DataFrame, lastfm_tracks_df: pd.DataFram
     )
 
 
-def _merge_lastfm_artists(unified_df: pd.DataFrame, lastfm_artists_df: pd.DataFrame) -> pd.DataFrame:
+def _merge_lastfm_artists(
+    unified_df: pd.DataFrame, lastfm_artists_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     Join Last.fm artist-level stats on canonical key.
     """
@@ -123,8 +139,9 @@ def _merge_lastfm_artists(unified_df: pd.DataFrame, lastfm_artists_df: pd.DataFr
         return unified_df
     right = lastfm_artists_df.drop_duplicates(subset=["artist_key"])
     drop_names = {"artist_name", "track_name", "album_name"}
-    right_cols = ["artist_key"] + [c for c in right.columns
-                                   if c not in unified_df.columns and c not in drop_names]
+    right_cols = ["artist_key"] + [
+        c for c in right.columns if c not in unified_df.columns and c not in drop_names
+    ]
     right = right[right_cols]
     return unified_df.merge(
         right,
@@ -134,7 +151,9 @@ def _merge_lastfm_artists(unified_df: pd.DataFrame, lastfm_artists_df: pd.DataFr
     )
 
 
-def _merge_lastfm_albums(unified_df: pd.DataFrame, lastfm_albums_df: pd.DataFrame) -> pd.DataFrame:
+def _merge_lastfm_albums(
+    unified_df: pd.DataFrame, lastfm_albums_df: pd.DataFrame
+) -> pd.DataFrame:
     """
     Join Last.fm album-level stats on canonical keys.
     """
@@ -143,8 +162,9 @@ def _merge_lastfm_albums(unified_df: pd.DataFrame, lastfm_albums_df: pd.DataFram
         return unified_df
     right = lastfm_albums_df.drop_duplicates(subset=["artist_key", "album_key"])
     drop_names = {"artist_name", "track_name", "album_name"}
-    right_cols = list(need) + [c for c in right.columns
-                               if c not in unified_df.columns and c not in drop_names]
+    right_cols = list(need) + [
+        c for c in right.columns if c not in unified_df.columns and c not in drop_names
+    ]
     right = right[right_cols]
     return unified_df.merge(
         right,
@@ -155,13 +175,17 @@ def _merge_lastfm_albums(unified_df: pd.DataFrame, lastfm_albums_df: pd.DataFram
 
 
 def _merge_musicbrainz(unified_df, musicbrainz_artists_df):
-    if musicbrainz_artists_df.empty or "artist_key" not in musicbrainz_artists_df.columns:
+    if (
+        musicbrainz_artists_df.empty
+        or "artist_key" not in musicbrainz_artists_df.columns
+    ):
         return unified_df
     # Avoid suffixes by pruning overlapping columns
     right = musicbrainz_artists_df.drop_duplicates(subset=["artist_key"])
     drop_names = {"artist_name", "track_name", "album_name"}
-    right_cols = ["artist_key"] + [c for c in right.columns
-                                   if c not in unified_df.columns and c not in drop_names]
+    right_cols = ["artist_key"] + [
+        c for c in right.columns if c not in unified_df.columns and c not in drop_names
+    ]
     right = right[right_cols]
     return unified_df.merge(
         right,
@@ -172,12 +196,15 @@ def _merge_musicbrainz(unified_df, musicbrainz_artists_df):
 
 
 def _merge_spotify_tracks(unified_df, spotify_tracks_df):
-    if spotify_tracks_df.empty or not {"artist_key", "track_key"}.issubset(spotify_tracks_df.columns):
+    if spotify_tracks_df.empty or not {"artist_key", "track_key"}.issubset(
+        spotify_tracks_df.columns
+    ):
         return unified_df
     right = spotify_tracks_df.drop_duplicates(subset=["artist_key", "track_key"])
     drop_names = {"artist_name", "track_name", "album_name"}
-    right_cols = ["artist_key", "track_key"] + [c for c in right.columns
-                                               if c not in unified_df.columns and c not in drop_names]
+    right_cols = ["artist_key", "track_key"] + [
+        c for c in right.columns if c not in unified_df.columns and c not in drop_names
+    ]
     right = right[right_cols]
     return unified_df.merge(
         right,
@@ -189,9 +216,21 @@ def _merge_spotify_tracks(unified_df, spotify_tracks_df):
 
 def _merge_favorites(unified_df, spotify_favorites_df):
     need_cols = {"artist_key", "track_key", "week_saturday_utc"}
-    if spotify_favorites_df.empty or not need_cols.issubset(spotify_favorites_df.columns):
+    if spotify_favorites_df.empty or not need_cols.issubset(
+        spotify_favorites_df.columns
+    ):
         return unified_df
-    label_cols = [c for c in ["artist_key", "track_key", "week_saturday_utc", "is_week_favorite", "added_at_utc"] if c in spotify_favorites_df.columns]
+    label_cols = [
+        c
+        for c in [
+            "artist_key",
+            "track_key",
+            "week_saturday_utc",
+            "is_week_favorite",
+            "added_at_utc",
+        ]
+        if c in spotify_favorites_df.columns
+    ]
     out = unified_df.merge(
         spotify_favorites_df[label_cols],
         how="left",
@@ -213,16 +252,63 @@ def _order_columns(
     lastfm_albums_df: pd.DataFrame,
 ):
     # Ignore any merge-suffix variants to avoid reintroducing duplicates after coalescing
-    cols_filtered = [c for c in unified_df.columns if not (c.endswith("_x") or c.endswith("_y"))]
-    
-    lf_tracks_only = [c for c in lastfm_tracks_df.columns if c not in ("artist_name", "track_name") and c not in scrobbles_columns] if not lastfm_tracks_df.empty else []
-    lf_artists_only = [c for c in lastfm_artists_df.columns if c not in ("artist_name",) and c not in scrobbles_columns] if not lastfm_artists_df.empty else []
-    lf_albums_only = [c for c in lastfm_albums_df.columns if c not in ("artist_name", "album_name") and c not in scrobbles_columns] if not lastfm_albums_df.empty else []
+    cols_filtered = [
+        c for c in unified_df.columns if not (c.endswith("_x") or c.endswith("_y"))
+    ]
 
-    mb_only = [c for c in musicbrainz_artists_df.columns if c not in ("artist_name",) and c not in scrobbles_columns] if not musicbrainz_artists_df.empty else []
-    sp_only = [c for c in spotify_tracks_df.columns if c not in ("artist_name", "track_name") and c not in scrobbles_columns and c not in mb_only] if not spotify_tracks_df.empty else []
-    label_tail = [c for c in ["week_saturday_utc", "added_at_utc", "is_week_favorite"] if c in cols_filtered and c not in scrobbles_columns]
+    lf_tracks_only = (
+        [
+            c
+            for c in lastfm_tracks_df.columns
+            if c not in ("artist_name", "track_name") and c not in scrobbles_columns
+        ]
+        if not lastfm_tracks_df.empty
+        else []
+    )
+    lf_artists_only = (
+        [
+            c
+            for c in lastfm_artists_df.columns
+            if c not in ("artist_name",) and c not in scrobbles_columns
+        ]
+        if not lastfm_artists_df.empty
+        else []
+    )
+    lf_albums_only = (
+        [
+            c
+            for c in lastfm_albums_df.columns
+            if c not in ("artist_name", "album_name") and c not in scrobbles_columns
+        ]
+        if not lastfm_albums_df.empty
+        else []
+    )
 
+    mb_only = (
+        [
+            c
+            for c in musicbrainz_artists_df.columns
+            if c not in ("artist_name",) and c not in scrobbles_columns
+        ]
+        if not musicbrainz_artists_df.empty
+        else []
+    )
+    sp_only = (
+        [
+            c
+            for c in spotify_tracks_df.columns
+            if c not in ("artist_name", "track_name")
+            and c not in scrobbles_columns
+            and c not in mb_only
+        ]
+        if not spotify_tracks_df.empty
+        else []
+    )
+    label_tail = [
+        c
+        for c in ["week_saturday_utc", "added_at_utc", "is_week_favorite"]
+        if c in cols_filtered and c not in scrobbles_columns
+    ]
 
     preferred = (
         [c for c in scrobbles_columns if c in cols_filtered]
@@ -239,6 +325,7 @@ def _order_columns(
     the_rest = [c for c in cols_filtered if c not in preferred_unique]
     return unified_df[preferred_unique + the_rest]
 
+
 def _coalesce_col(df: pd.DataFrame, column: str) -> pd.DataFrame:
     # If merges created column_x / column_y, prefer column's (x) and
     # fallback to the (y). Produce a single column.
@@ -253,12 +340,16 @@ def _coalesce_col(df: pd.DataFrame, column: str) -> pd.DataFrame:
     # if column already existed cleanly, do nothing
     return df
 
+
 def _write_output(unified_df, project_config):
-    processed_dir = Path(project_config["paths"]["core_processed"])  # no fallback; fail if missing
+    processed_dir = Path(
+        project_config["paths"]["core_processed"]
+    )  # no fallback; fail if missing
     processed_dir.mkdir(parents=True, exist_ok=True)
     output_path = processed_dir / "dataset_full.csv"
     write_csv(output_path, unified_df, append=False)
     logger.info(f"Unified dataset built at {output_path} (rows={len(unified_df)})")
+
 
 def build_unified_dataset(repo_root="."):
     config_manager = ConfigManager(Path(repo_root).resolve())
@@ -278,23 +369,29 @@ def build_unified_dataset(repo_root="."):
     spotify_favorites_df = inputs["sp_favorites"]
 
     scrobbles_columns = list(scrobbles_df.columns)
-    _normalize_join_keys([
-        scrobbles_df,
-        lastfm_tracks_df,
-        lastfm_artists_df,
-        lastfm_albums_df,
-        musicbrainz_artists_df,
-        spotify_tracks_df,
-        spotify_favorites_df,
-    ])
+    _normalize_join_keys(
+        [
+            scrobbles_df,
+            lastfm_tracks_df,
+            lastfm_artists_df,
+            lastfm_albums_df,
+            musicbrainz_artists_df,
+            spotify_tracks_df,
+            spotify_favorites_df,
+        ]
+    )
     scrobbles_df = _anchor_scrobbles_week(scrobbles_df)
 
     # Canonical keys across all datasets
     scrobbles_df = _add_name_keys(scrobbles_df)
     lastfm_tracks_df = _add_name_keys(lastfm_tracks_df)
-    lastfm_artists_df = _add_name_keys(lastfm_artists_df, track_col=None, album_col=None)
+    lastfm_artists_df = _add_name_keys(
+        lastfm_artists_df, track_col=None, album_col=None
+    )
     lastfm_albums_df = _add_name_keys(lastfm_albums_df)
-    musicbrainz_artists_df = _add_name_keys(musicbrainz_artists_df, track_col=None, album_col=None)
+    musicbrainz_artists_df = _add_name_keys(
+        musicbrainz_artists_df, track_col=None, album_col=None
+    )
     spotify_tracks_df = _add_name_keys(spotify_tracks_df)
     spotify_favorites_df = _add_name_keys(spotify_favorites_df)
 
@@ -306,8 +403,8 @@ def build_unified_dataset(repo_root="."):
     unified = _merge_spotify_tracks(unified, spotify_tracks_df)
     unified = _merge_favorites(unified, spotify_favorites_df)
 
-    unified = _coalesce_col(unified, column='album_mbid')
-    unified = _coalesce_col(unified, column='artist_mbid')
+    unified = _coalesce_col(unified, column="album_mbid")
+    unified = _coalesce_col(unified, column="artist_mbid")
 
     unified = _order_columns(
         unified,

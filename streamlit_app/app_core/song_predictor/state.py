@@ -6,13 +6,24 @@ import streamlit as st
 
 # --- Constants ---
 GENRE_BUCKET_OPTIONS: List[str] = [
-    "hip_hop_rap", "rnb_soul", "electronic_dance", "jazz", "classical_art",
-    "folk_country_americana", "metal_hard", "rock", "pop", "latin",
-    "world_regional", "experimental_avant", "unknown",
+    "hip_hop_rap",
+    "rnb_soul",
+    "electronic_dance",
+    "jazz",
+    "classical_art",
+    "folk_country_americana",
+    "metal_hard",
+    "rock",
+    "pop",
+    "latin",
+    "world_regional",
+    "experimental_avant",
+    "unknown",
 ]
 COOLDOWN_SECONDS: float = 1.0
 
 # --- State Management ---
+
 
 def init_session_state() -> None:
     if "backend_warmed_up" not in st.session_state:
@@ -26,6 +37,7 @@ def init_session_state() -> None:
     if "last_prediction_mode" not in st.session_state:
         st.session_state["last_prediction_mode"] = None
 
+
 def can_call(name: str) -> bool:
     key = f"last_call_{name}"
     now = time.time()
@@ -36,10 +48,13 @@ def can_call(name: str) -> bool:
     st.session_state[key] = now
     return True
 
+
 # --- Candidate Accessors ---
+
 
 def get_candidates() -> List[Dict[str, Any]]:
     return st.session_state["candidates"]
+
 
 def get_selected_candidate() -> Optional[Dict[str, Any]]:
     cid = st.session_state.get("selected_candidate_id")
@@ -47,22 +62,28 @@ def get_selected_candidate() -> Optional[Dict[str, Any]]:
         return get_candidate_by_id(cid)
     return None
 
+
 def get_selected_candidate_id() -> Optional[str]:
     return st.session_state.get("selected_candidate_id")
-    
+
+
 def get_candidate_by_id(cid: str) -> Optional[Dict[str, Any]]:
     for cand in st.session_state["candidates"]:
         if cand.get("candidate_id") == cid:
             return cand
     return None
 
+
 def get_last_prediction_mode() -> Optional[str]:
     return st.session_state.get("last_prediction_mode")
+
 
 def get_last_threshold() -> float:
     return st.session_state.get("last_threshold", 0.5)
 
+
 # --- Candidate Mutators ---
+
 
 def add_candidate(candidate: Dict[str, Any]) -> None:
     if not candidate.get("candidate_id"):
@@ -70,18 +91,20 @@ def add_candidate(candidate: Dict[str, Any]) -> None:
     st.session_state["candidates"].append(candidate)
     st.session_state["selected_candidate_id"] = candidate["candidate_id"]
 
+
 def remove_candidate(cid: str) -> None:
     st.session_state["candidates"] = [
-        c for c in st.session_state["candidates"] 
-        if c.get("candidate_id") != cid
+        c for c in st.session_state["candidates"] if c.get("candidate_id") != cid
     ]
     if st.session_state["selected_candidate_id"] == cid:
         st.session_state["selected_candidate_id"] = None
+
 
 def remove_all_candidates() -> None:
     st.session_state["candidates"] = []
     st.session_state["selected_candidate_id"] = None
     st.session_state["last_prediction_mode"] = None
+
 
 def duplicate_candidate(candidate: Dict[str, Any]) -> None:
     new_candidate = {**candidate}
@@ -93,6 +116,7 @@ def duplicate_candidate(candidate: Dict[str, Any]) -> None:
     for k in ["probability", "rank", "prediction", "above_threshold"]:
         new_candidate[k] = None
     add_candidate(new_candidate)
+
 
 def build_manual_template() -> Dict[str, Any]:
     """Returns a candidate with all feature fields initialized to safe defaults."""
@@ -126,6 +150,7 @@ def build_manual_template() -> Dict[str, Any]:
         "prediction": None,
     }
 
+
 def update_results(response: Dict[str, Any], mode: str) -> None:
     """Merges the API prediction results back into the session candidates."""
     results = response.get("results", [])
@@ -134,12 +159,12 @@ def update_results(response: Dict[str, Any], mode: str) -> None:
     st.session_state["last_prediction_mode"] = mode
 
     res_map = {r.get("candidate_id"): r for r in results if r.get("candidate_id")}
-    res_list = results 
+    res_list = results
 
     for idx, cand in enumerate(st.session_state["candidates"]):
         cid = cand.get("candidate_id")
         match = res_map.get(cid)
-        
+
         # In Ranking mode, if IDs fail, we fallback to list index
         if not match and idx < len(res_list) and mode == "ranking":
             match = res_list[idx]

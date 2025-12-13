@@ -1,4 +1,3 @@
-
 import logging
 import time
 from pathlib import Path
@@ -56,7 +55,9 @@ class LastFMAPI:
                 return data
             except Exception as e:
                 if attempt == retries:
-                    logger.error(f"Request failed after {retries} attempts: {e} | params={params}")
+                    logger.error(
+                        f"Request failed after {retries} attempts: {e} | params={params}"
+                    )
                     return {}
                 time.sleep(backoff * attempt)
 
@@ -84,7 +85,7 @@ class LastFMAPI:
             }
         ]
         return user_data
-    
+
     def fetch_track_info(self, *, artist: str, track: str) -> dict[str, Any]:
         """
         Track metadata (e.g., duration, listeners, playcount).
@@ -98,12 +99,12 @@ class LastFMAPI:
         }
         data = self._get(params)
         track_data = data.get("track", {}) if isinstance(data, dict) else {}
-        track_duration = int(track_data.get('duration', 0)) // 1000    # in seconds
+        track_duration = int(track_data.get("duration", 0)) // 1000  # in seconds
 
         track_details = {
             "artist_name": artist,
             "track_name": track,
-            "track_duration": track_duration
+            "track_duration": track_duration,
         }
         return track_details
 
@@ -120,43 +121,46 @@ class LastFMAPI:
             "format": "json",
         }
         data = self._get(params)
-        
+
         # Extract album data
-        album_info = data.get('album', {})
-        album_listeners = album_info.get('listeners', 0)
-        album_playcount = album_info.get('playcount', 0)
-        
+        album_info = data.get("album", {})
+        album_listeners = album_info.get("listeners", 0)
+        album_playcount = album_info.get("playcount", 0)
+
         album_details = {
-            'artist_name': artist,
-            'album_name': album,
-            'album_listeners': album_listeners,
-            'album_playcount': album_playcount,
+            "artist_name": artist,
+            "album_name": album,
+            "album_listeners": album_listeners,
+            "album_playcount": album_playcount,
         }
         return album_details
-    
+
     def fetch_artist_info(self, *, artist: str) -> dict[str, Any]:
         """
         Artist metadata (stats, tags, bio summary).
         """
         params = {
             "method": "artist.getInfo",
-            'artist': artist,
+            "artist": artist,
             "api_key": self.api_key,
             "format": "json",
         }
         data = self._get(params)
-        artist_info = data.get('artist', {})
+        artist_info = data.get("artist", {})
         artist_data = {
-            'artist_name': artist
+            "artist_name": artist
             # , 'artist_mbid2': artist_info.get('mbid', '')
-            , 'artist_listeners': artist_info.get('stats', {}).get('listeners', 0)
-            , 'artist_playcount': artist_info.get('stats', {}).get('playcount', 0)
+            ,
+            "artist_listeners": artist_info.get("stats", {}).get("listeners", 0),
+            "artist_playcount": artist_info.get("stats", {}).get("playcount", 0),
             # , 'artist_image': get_image_text(artist_info.get('image', {}), 'extralarge')
         }
 
         return artist_data
 
-    def total_pages(self, from_unix: str | None, to_unix: str | None, limit: int = 1000) -> int:
+    def total_pages(
+        self, from_unix: str | None, to_unix: str | None, limit: int = 1000
+    ) -> int:
         """
         Inspect the paginator to determine how many pages are available for the window.
         """
@@ -203,11 +207,13 @@ class LastFMAPI:
         all_tracks: list[dict[str, Any]] = []
         scrobble_number = scrobble_start
 
-        logger.info(f"Total pages: {total} | Fetching from page {total} down to {page_goal}")
+        logger.info(
+            f"Total pages: {total} | Fetching from page {total} down to {page_goal}"
+        )
 
         page = total
         while page >= page_goal:
-            logger.info(f'Page {page} up until {page_goal}')
+            logger.info(f"Page {page} up until {page_goal}")
             params = {
                 "method": "user.getrecenttracks",
                 "user": self.username,
@@ -241,16 +247,25 @@ class LastFMAPI:
                 continue
 
             # drop now-playing at the head if present
-            if isinstance(tracks[0], dict) and tracks[0].get("@attr", {}).get("nowplaying") == "true":
+            if (
+                isinstance(tracks[0], dict)
+                and tracks[0].get("@attr", {}).get("nowplaying") == "true"
+            ):
                 tracks = tracks[1:]
 
             # early skip if page’s newest is older/equal than from_unix
-            most_recent_txt = (tracks[0].get("date") or {}).get("#text") if tracks else None
+            most_recent_txt = (
+                (tracks[0].get("date") or {}).get("#text") if tracks else None
+            )
             if most_recent_txt and from_unix:
-                most_recent_dt = pd.to_datetime(most_recent_txt, format="%d %b %Y, %H:%M", utc=True)
+                most_recent_dt = pd.to_datetime(
+                    most_recent_txt, format="%d %b %Y, %H:%M", utc=True
+                )
                 from_dt = pd.to_datetime(int(from_unix), unit="s", utc=True)
                 if from_dt >= most_recent_dt:
-                    logger.info(f"Page {page}: newest item <= from_date ({most_recent_dt}); skipping page.")
+                    logger.info(
+                        f"Page {page}: newest item <= from_date ({most_recent_dt}); skipping page."
+                    )
                     page -= 1
                     if courtesy_sleep_secs:
                         time.sleep(courtesy_sleep_secs)

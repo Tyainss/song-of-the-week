@@ -5,6 +5,7 @@ from streamlit_app.utils import api_client
 
 # --- Startup Helpers ---
 
+
 def _ensure_backend_warmup() -> None:
     """Checks the health of the prediction API on startup."""
     if st.session_state.get("backend_warmed_up"):
@@ -16,7 +17,9 @@ def _ensure_backend_warmup() -> None:
         # Fail silently or show a small toast, don't block UI
         pass
 
+
 # ------------- Main page ------------- #
+
 
 def main():
     state.init_session_state()
@@ -28,6 +31,7 @@ def main():
     views.render_add_candidate_section()
     st.divider()
     views.render_main_workspace()
+
 
 if __name__ == "__main__":
     main()

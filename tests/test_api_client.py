@@ -5,7 +5,9 @@ from streamlit_app.utils import api_client
 
 
 class DummyResponse:
-    def __init__(self, status_code=200, json_data=None, text="", raise_http_error=False):
+    def __init__(
+        self, status_code=200, json_data=None, text="", raise_http_error=False
+    ):
         self.status_code = status_code
         self._json_data = json_data
         self.text = text

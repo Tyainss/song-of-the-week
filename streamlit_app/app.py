@@ -11,10 +11,7 @@ import streamlit as st
 
 def define_pages():
     song_predictor_page = st.Page(
-        "pages/song_predictor.py", 
-        title="Song Predictor", 
-        icon="🔮", 
-        default=True 
+        "pages/song_predictor.py", title="Song Predictor", icon="🔮", default=True
     )
     about_page = st.Page(
         "pages/about.py",
@@ -40,4 +37,3 @@ def define_pages():
 pg = define_pages()
 st.logo("streamlit_app/logo/personal_mark.png")
 pg.run()
-

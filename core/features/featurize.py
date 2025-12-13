@@ -1,4 +1,3 @@
-
 import pandas as pd
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.feature_selection import mutual_info_classif
@@ -8,10 +7,7 @@ from sklearn.feature_selection import mutual_info_classif
 # Config-derived parameters
 # ---------------------------
 def get_label_start_dt(project_cfg) -> pd.Timestamp:
-    val = (
-        project_cfg.get("modeling", {})
-                   .get("label_start_saturday_utc", "2021-01-02")
-    )
+    val = project_cfg.get("modeling", {}).get("label_start_saturday_utc", "2021-01-02")
     dt = pd.to_datetime(str(val), utc=True, errors="coerce")
     if pd.isna(dt):
         dt = pd.to_datetime("2021-01-02", utc=True)
@@ -25,7 +21,9 @@ def _ensure_week_saturday_dt(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     if "week_saturday_dt" in out.columns:
         # Coerce to tz-aware datetime even if it’s currently strings/objects
-        out["week_saturday_dt"] = pd.to_datetime(out["week_saturday_dt"], utc=True, errors="coerce")
+        out["week_saturday_dt"] = pd.to_datetime(
+            out["week_saturday_dt"], utc=True, errors="coerce"
+        )
         # If any remain NaT and we have the utc string, fill from it
         if "week_saturday_utc" in out.columns:
             mask = out["week_saturday_dt"].isna()
@@ -34,10 +32,15 @@ def _ensure_week_saturday_dt(df: pd.DataFrame) -> pd.DataFrame:
                     out.loc[mask, "week_saturday_utc"], utc=True, errors="coerce"
                 )
     elif "week_saturday_utc" in out.columns:
-        out["week_saturday_dt"] = pd.to_datetime(out["week_saturday_utc"], utc=True, errors="coerce")
+        out["week_saturday_dt"] = pd.to_datetime(
+            out["week_saturday_utc"], utc=True, errors="coerce"
+        )
     else:
-        raise KeyError("Expected 'week_saturday_dt' or 'week_saturday_utc' in weekly table")
+        raise KeyError(
+            "Expected 'week_saturday_dt' or 'week_saturday_utc' in weekly table"
+        )
     return out
+
 
 def filter_label_period(df: pd.DataFrame, label_start_dt: pd.Timestamp) -> pd.DataFrame:
     out = _ensure_week_saturday_dt(df)
@@ -75,7 +78,9 @@ def select_feature_columns(df: pd.DataFrame) -> list[str]:
         "days_since_release",
     ]
     # be flexible: whichever released_within_*d the weekly builder produced
-    rel_flags = [c for c in df.columns if c.startswith("released_within_") and c.endswith("d")]
+    rel_flags = [
+        c for c in df.columns if c.startswith("released_within_") and c.endswith("d")
+    ]
     genre_ohe = [c for c in df.columns if c.startswith("genre__")]
     cols = [c for c in core + rel_flags + genre_ohe if c in df.columns]
     return cols
@@ -97,10 +102,16 @@ def drop_leaky_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def drop_identifier_columns(df: pd.DataFrame) -> pd.DataFrame:
     id_like = {
-        "artist_name", "track_name",
-        "week_saturday_utc", "week_saturday_dt",
-        "track_mbid", "artist_mbid", "album_mbid",
-        "track_key", "artist_key", "album_key",
+        "artist_name",
+        "track_name",
+        "week_saturday_utc",
+        "week_saturday_dt",
+        "track_mbid",
+        "artist_mbid",
+        "album_mbid",
+        "track_key",
+        "artist_key",
+        "album_key",
         "spotify_track_id",
     }
     keep = [c for c in df.columns if c not in id_like]
@@ -121,6 +132,7 @@ def remove_high_corr_features(X: pd.DataFrame) -> pd.DataFrame:
     ]
     return X.drop(columns=[c for c in to_drop if c in X.columns], errors="ignore")
 
+
 # ---------------------------
 # One Hot Encoding
 # ---------------------------
@@ -129,6 +141,7 @@ def _collapse_rare_levels(series: pd.Series, min_freq: int) -> pd.Series:
     vc = s.value_counts(dropna=False)
     keep = set(vc[vc >= max(1, int(min_freq))].index.tolist())
     return s.where(s.isin(keep), other="other")
+
 
 def fit_dv_ohe(
     df: pd.DataFrame,
@@ -161,6 +174,7 @@ def fit_dv_ohe(
         out = out.drop(columns=[column])
     return out, dv, levels
 
+
 def transform_dv_ohe(
     df: pd.DataFrame,
     dv: DictVectorizer,
@@ -188,6 +202,7 @@ def transform_dv_ohe(
         out = out.drop(columns=[column])
     return out
 
+
 # ---------------------------
 # Imputation
 # ---------------------------
@@ -208,7 +223,9 @@ def impute_days_since_release(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------
 # Assembly
 # ---------------------------
-def make_weekly_for_model(df_weekly: pd.DataFrame, label_start_dt: pd.Timestamp) -> pd.DataFrame:
+def make_weekly_for_model(
+    df_weekly: pd.DataFrame, label_start_dt: pd.Timestamp
+) -> pd.DataFrame:
     """
     Returns a modeling-view weekly table (ready for training notebooks).
 

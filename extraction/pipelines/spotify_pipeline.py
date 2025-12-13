@@ -1,4 +1,3 @@
-
 from pathlib import Path
 import time
 import logging
@@ -41,6 +40,7 @@ def _generate_track_feature_rows(api: SpotifyAPI, pending_pairs: pd.DataFrame):
         if row:
             yield row
 
+
 def _apply_manual_playlist_fixes(df: pd.DataFrame) -> pd.DataFrame:
     """These manual fixes ensure a match with LastFM scrobbles, caused by inconsistencies"""
     # Track-only renames
@@ -50,14 +50,15 @@ def _apply_manual_playlist_fixes(df: pd.DataFrame) -> pd.DataFrame:
         "Bonita Applebum": "Bonita Applebum - includes 'Can I Kick It' Intro",
         "Pronto": "Careless",
     }
-    df.loc[df["track_name"].isin(track_renames.keys()), "track_name"] = (
-        df["track_name"].map(lambda x: track_renames.get(x, x))
-    )
+    df.loc[df["track_name"].isin(track_renames.keys()), "track_name"] = df[
+        "track_name"
+    ].map(lambda x: track_renames.get(x, x))
     # Special case: change both artist and track
     mask = (df["track_name"] == "Love More") & (df["artist_name"] == "Fiona Apple")
-    df.loc[mask, "track_name"]  = "Love More (By Fiona Apple)"
+    df.loc[mask, "track_name"] = "Love More (By Fiona Apple)"
     df.loc[mask, "artist_name"] = "Sharon Van Etten"
     return df
+
 
 def _pull_playlist(api: SpotifyAPI, cfg_spotify, curated_dir: Path) -> None:
     """
@@ -74,7 +75,9 @@ def _pull_playlist(api: SpotifyAPI, cfg_spotify, curated_dir: Path) -> None:
     rows = []
 
     logger.info(f"Fetching playlist items for {playlist_id}")
-    for item in api.iter_playlist_items(playlist_id, page_limit=cfg_spotify.get("page_limit")):
+    for item in api.iter_playlist_items(
+        playlist_id, page_limit=cfg_spotify.get("page_limit")
+    ):
         track = (item or {}).get("track") or {}
         if not track:
             continue
@@ -99,13 +102,17 @@ def _pull_playlist(api: SpotifyAPI, cfg_spotify, curated_dir: Path) -> None:
     # Normalize timestamp to UTC tz-naive string
     # Spotify added_at is RFC3339 with Z (UTC). Keep tz-naive strings in curated layer.
     dt = pd.to_datetime(df["added_at_raw"], utc=True, errors="coerce")
-    df["added_at_utc"] = dt.dt.tz_convert("UTC").dt.tz_localize(None).dt.strftime("%Y-%m-%d %H:%M:%S")
+    df["added_at_utc"] = (
+        dt.dt.tz_convert("UTC").dt.tz_localize(None).dt.strftime("%Y-%m-%d %H:%M:%S")
+    )
 
     # Compute nearest Saturday within ±3 days; otherwise bias to previous Saturday
     # weekday(): Monday=0 ... Saturday=5, Sunday=6
     weekday = dt.dt.weekday
     days_since_prev_sat = (weekday - 5) % 7
-    prev_sat = (dt - pd.to_timedelta(days_since_prev_sat, unit="D")).dt.tz_convert("UTC")
+    prev_sat = (dt - pd.to_timedelta(days_since_prev_sat, unit="D")).dt.tz_convert(
+        "UTC"
+    )
     next_sat = prev_sat + pd.Timedelta(days=7)
     diff_prev = (dt - prev_sat).dt.total_seconds().abs() / 86400.0
     diff_next = (next_sat - dt).dt.total_seconds().abs() / 86400.0
@@ -117,16 +124,20 @@ def _pull_playlist(api: SpotifyAPI, cfg_spotify, curated_dir: Path) -> None:
     both_far = (diff_prev > 3) & (diff_next > 3)
     chosen_sat = chosen_sat.where(~both_far, prev_sat)
 
-    df["week_saturday_utc"] = chosen_sat.dt.tz_localize(None).dt.strftime("%Y-%m-%d 00:00:00")
+    df["week_saturday_utc"] = chosen_sat.dt.tz_localize(None).dt.strftime(
+        "%Y-%m-%d 00:00:00"
+    )
 
     # Final curated columns and label flag
-    df_curated = df[[
-        "artist_name",
-        "track_name",
-        "spotify_track_id",
-        "added_at_utc",
-        "week_saturday_utc",
-    ]].copy()
+    df_curated = df[
+        [
+            "artist_name",
+            "track_name",
+            "spotify_track_id",
+            "added_at_utc",
+            "week_saturday_utc",
+        ]
+    ].copy()
     df_curated["is_week_favorite"] = 1
 
     # Upsert into favorites: dedupe by (artist_name, track_name, week_saturday_utc),
@@ -182,9 +193,11 @@ def run_incremental(
     batch_size = cfg_spotify["batch_size"]
 
     # Candidate pairs from scrobbles
-    scrobbles_pairs = read_csv(
-        scrobbles_csv, usecols=["artist_name", "track_name"], safe=True
-    ).dropna().drop_duplicates()
+    scrobbles_pairs = (
+        read_csv(scrobbles_csv, usecols=["artist_name", "track_name"], safe=True)
+        .dropna()
+        .drop_duplicates()
+    )
     pending_pairs = _dedupe_missing_tracks(tracks_output_csv, scrobbles_pairs)
     total_pending = len(pending_pairs.index)
     logger.info(f"Spotify tracks to fetch: {total_pending}")
@@ -192,13 +205,17 @@ def run_incremental(
     if total_pending > 0:
         batch_rows = []
         sleep_secs_per_batch = cfg_spotify.get("sleep_secs_per_batch", 10)
-        for processed_count, row in enumerate(_generate_track_feature_rows(api, pending_pairs), start=1):
+        for processed_count, row in enumerate(
+            _generate_track_feature_rows(api, pending_pairs), start=1
+        ):
             batch_rows.append(row)
             if processed_count % batch_size == 0:
                 df = pd.DataFrame(batch_rows)
                 if not df.empty:
                     write_csv(tracks_output_csv, df, append=tracks_output_csv.exists())
-                    logger.info(f"Spotify rows appended ({len(df)}). Progress: {processed_count}/{total_pending}")
+                    logger.info(
+                        f"Spotify rows appended ({len(df)}). Progress: {processed_count}/{total_pending}"
+                    )
                 batch_rows.clear()
                 if sleep_secs_per_batch and sleep_secs_per_batch > 0:
                     time.sleep(sleep_secs_per_batch)
@@ -206,7 +223,9 @@ def run_incremental(
         if batch_rows:
             df = pd.DataFrame(batch_rows)
             write_csv(tracks_output_csv, df, append=tracks_output_csv.exists())
-            logger.info(f"Spotify rows appended ({len(df)}). Progress: {total_pending}/{total_pending}")
+            logger.info(
+                f"Spotify rows appended ({len(df)}). Progress: {total_pending}/{total_pending}"
+            )
 
     # Curated favorites (labels)
     _pull_playlist(api, cfg_spotify, curated_dir)

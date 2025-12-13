@@ -32,7 +32,9 @@ def main() -> None:
     if out_csv.exists():
         # only the 'scrobble_number' column is needed
         existing = pd.read_csv(out_csv, usecols=["scrobble_number"])
-        scrobble_start = int(existing["scrobble_number"].max()) if not existing.empty else 0
+        scrobble_start = (
+            int(existing["scrobble_number"].max()) if not existing.empty else 0
+        )
 
     # API client (timeout_secs + user_agent from yaml)
     api = LastFMAPI(
@@ -40,7 +42,7 @@ def main() -> None:
         username=lastfm["username"],
         user_agent=project["user_agent"],
     )
-    
+
     run_incremental(
         api=api,
         cfg_lastfm=lastfm,
