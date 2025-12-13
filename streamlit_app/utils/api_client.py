@@ -1,4 +1,5 @@
 
+import os
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -6,7 +7,25 @@ import streamlit as st
 
 
 DEFAULT_TIMEOUT = 10.0
-BASE_URL = st.secrets.get("api_base_url", "http://localhost:9696")
+DEFAULT_BASE_URL = "https://song-of-the-week.onrender.com"
+
+
+def _get_base_url() -> str:
+    env_url = os.getenv("SOTW_API_BASE_URL")
+    if env_url:
+        return env_url.rstrip("/")
+
+    try:
+        secret_url = st.secrets.get("api_base_url")
+        if secret_url:
+            return str(secret_url).rstrip("/")
+    except Exception:
+        pass
+
+    return DEFAULT_BASE_URL
+
+
+BASE_URL = _get_base_url()
 
 
 class APIClientError(RuntimeError):
