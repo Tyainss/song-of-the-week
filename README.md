@@ -19,9 +19,9 @@
 
 <!-- # 🎶 Song of the Week -->
 
-Predicting my **weekly favourite song** from historical listening data, with a production-ready **Logistic Regression** model served via **FastAPI**, containerized with **Docker**, and deployed to **Render**.
+_Predicting my **weekly favourite song** from historical listening data, with a production-ready **Logistic Regression** model served via **FastAPI**, containerized with **Docker**, and deployed to **Render**._
 
-Every Saturday since `2021-01-02`, I pick a single **"Favourite Song of the Week"** that best represents my week and save it to a Spotify playlist. This project asks a simple question:
+Every Saturday since `2021-01-02`, I pick a single **"Favourite Song of the Week"** that best represents my week and save it to a [Spotify playlist](https://open.spotify.com/playlist/1fEZEREbZ12WvjOsdBoHxi?si=c2948ea89ae5487a). This project asks a simple question:
 
 > Can a model learn my listening patterns well enough to guess which favourite song I'll choose?
 
@@ -53,7 +53,7 @@ Every Saturday since `2021-01-02`, I pick a single **"Favourite Song of the Week
 
 ## Quick start
 
-If you just want to see it working:
+If you just want to see it working locally:
 
 - ✅ **Try the live API docs** (no setup):
 
