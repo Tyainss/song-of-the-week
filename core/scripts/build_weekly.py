@@ -57,6 +57,27 @@ def _log_weekly_sanity_checks(df: pd.DataFrame) -> None:
     else:
         logger.info("Weekly sanity checks passed (no obvious invariant violations).")
 
+    # Cross-feature consistency:
+    # If a track has non-zero prior-week scrobbles, all-time prior scrobbles cannot be zero.
+    needed = {"prior_scrobbles_all_time", "scrobbles_prev_1w"}
+    if needed.issubset(df.columns):
+        prior = pd.to_numeric(df["prior_scrobbles_all_time"], errors="coerce").fillna(0)
+        prev1 = pd.to_numeric(df["scrobbles_prev_1w"], errors="coerce").fillna(0)
+        bad_rows = int(((prev1 > 0) & (prior == 0)).sum())
+        if bad_rows > 0:
+            logger.warning(
+                "Sanity: found rows where scrobbles_prev_1w > 0 but prior_scrobbles_all_time == 0: %d",
+                bad_rows,
+            )
+    
+    needed = {"prior_scrobbles_all_time", "scrobbles_prev_4w"}
+    if needed.issubset(df.columns):
+        prior = pd.to_numeric(df["prior_scrobbles_all_time"], errors="coerce").fillna(0)
+        prev4 = pd.to_numeric(df["scrobbles_prev_4w"], errors="coerce").fillna(0)
+        bad_rows = int(((prev4 > prior)).sum())
+        if bad_rows > 0:
+            logger.warning("Sanity: found rows where scrobbles_prev_4w > prior_scrobbles_all_time: %d", bad_rows)
+
 
 def run(repo_root: Path) -> Path:
     cm = ConfigManager(repo_root)
