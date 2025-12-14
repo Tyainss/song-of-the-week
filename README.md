@@ -1,4 +1,23 @@
-# 🎶 Song of the Week
+
+<div align="center">
+  <div id="user-content-toc">
+    <ul>
+      <summary><h1 style="display: inline-block;">🎶 Song of the Week 🎶</h1></summary>
+    </ul>
+  </div>
+
+</div>
+
+<div align="center">
+      <a href=https://song-of-the-week.streamlit.app//"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg"/></a>
+
+</div>
+<br>
+<hr>
+
+<!-- ![Song Predictor (Streamlit UI)](docs/screenshots/03_song_predictor_streamlit_ui.png) -->
+
+<!-- # 🎶 Song of the Week -->
 
 Predicting my **weekly favourite song** from historical listening data, with a production-ready **Logistic Regression** model served via **FastAPI**, containerized with **Docker**, and deployed to **Render**.
 
