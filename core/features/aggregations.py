@@ -181,7 +181,10 @@ def add_scrobbles_prev_w(df, window: int, col_name: str = None):
         prev = series.fillna(0).astype("Int64")
     else:
         prev = (
-            series.rolling(window=window, min_periods=1).sum().fillna(0).astype("Int64")
+            g["scrobbles_week"]
+            .apply(lambda s: s.shift(1).rolling(window=window, min_periods=1).sum())
+            .fillna(0)
+            .astype("Int64")
         )
     name = col_name if col_name else f"scrobbles_prev_{window}w"
     df[name] = prev
@@ -221,10 +224,14 @@ def add_prior_scrobbles_all_time(df):
     df = df.copy().sort_values(
         ["artist_name", "track_name", "week_saturday_dt"], kind="stable"
     )
-    g = df.groupby(["artist_name", "track_name"], sort=False)
-    # prior = cumulative sum up to previous row within each track
-    csum = g["scrobbles_week"].transform("cumsum")
-    df["prior_scrobbles_all_time"] = (csum - df["scrobbles_week"]).astype("Int64")
+    g = df.groupby(["artist_name", "track_name"], sort=False, group_keys=False)
+    # prior = cumulative sum of previous weeks only (explicit shift -> cumsum)
+    df["prior_scrobbles_all_time"] = (
+        g["scrobbles_week"]
+        .apply(lambda s: s.shift(1).cumsum())
+        .fillna(0)
+        .astype("Int64")
+    )
     return df
 
 
