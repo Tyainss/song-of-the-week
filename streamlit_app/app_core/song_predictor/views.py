@@ -353,7 +353,7 @@ def render_inspector_panel():
             )
         with c2:
             cand["prior_scrobbles_all_time"] = st.number_input(
-                "All Time Scrobbles",
+                "Prior All Time Scrobbles",
                 min_value=0,
                 value=int(cand.get("prior_scrobbles_all_time", 0)),
                 step=1,
